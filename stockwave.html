@@ -1,0 +1,2404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StockWave</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
+
+  :root {
+    --bg: #0a0e1a;
+    --bg2: #111827;
+    --bg3: #1a2235;
+    --card: #141d2e;
+    --card2: #1e2a3d;
+    --border: #1f2e45;
+    --green: #00d09c;
+    --green2: #00f5b4;
+    --red: #ff4d6d;
+    --red2: #ff6b87;
+    --blue: #3b82f6;
+    --purple: #8b5cf6;
+    --gold: #f59e0b;
+    --text: #e8edf5;
+    --text2: #8fa3bf;
+    --text3: #4a6080;
+    --ticker-h: 42px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; overflow-x: hidden; }
+
+  /* ── TICKER ── */
+  .ticker-wrap { position: fixed; top: 0; left: 0; right: 0; height: var(--ticker-h); background: var(--bg2); border-bottom: 1px solid var(--border); z-index: 1000; overflow: hidden; display: flex; align-items: center; }
+  .ticker-label { padding: 0 14px; font-size: 11px; font-weight: 700; color: var(--blue); letter-spacing: 1.5px; white-space: nowrap; border-right: 1px solid var(--border); height: 100%; display: flex; align-items: center; background: var(--bg2); z-index: 2; }
+  .ticker-track { display: flex; gap: 0; animation: ticker 60s linear infinite; white-space: nowrap; }
+  .ticker-item { display: inline-flex; align-items: center; gap: 8px; padding: 0 20px; border-right: 1px solid var(--border); height: var(--ticker-h); font-size: 12px; }
+  .ticker-item .sym { font-weight: 700; color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+  .ticker-item .price { font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  .ticker-item .chg { font-size: 10px; font-weight: 600; }
+  .up { color: var(--green); }
+  .down { color: var(--red); }
+  @keyframes ticker { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+
+  /* ── NAVBAR ── */
+  .navbar { position: fixed; top: var(--ticker-h); left: 0; right: 0; height: 60px; background: var(--bg2); border-bottom: 1px solid var(--border); z-index: 999; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; }
+  .logo { font-size: 22px; font-weight: 800; background: linear-gradient(135deg, var(--green), var(--blue)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: -0.5px; }
+  .logo span { font-weight: 300; }
+  .nav-links { display: flex; gap: 4px; }
+  .nav-btn { background: none; border: none; color: var(--text2); padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500; font-family: 'Inter', sans-serif; transition: all 0.2s; }
+  .nav-btn:hover, .nav-btn.active { background: var(--bg3); color: var(--text); }
+  .nav-btn.active { color: var(--green); }
+  .nav-right { display: flex; align-items: center; gap: 12px; }
+  .balance-chip { background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 6px 12px; font-size: 13px; }
+  .balance-chip span { color: var(--text2); font-size: 11px; }
+  .balance-amt { color: var(--green); font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+  .user-chip { background: linear-gradient(135deg, var(--blue), var(--purple)); border-radius: 8px; padding: 6px 12px; font-size: 12px; font-weight: 600; cursor: pointer; }
+
+  /* ── LAYOUT ── */
+  .main { margin-top: calc(var(--ticker-h) + 60px); padding: 24px; min-height: calc(100vh - var(--ticker-h) - 60px); }
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* ── AUTH PAGE ── */
+  .auth-page { display: flex; align-items: center; justify-content: center; min-height: calc(100vh - var(--ticker-h)); margin-top: var(--ticker-h); }
+  .auth-card { background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 40px; width: 100%; max-width: 420px; }
+  .auth-logo { font-size: 32px; font-weight: 800; background: linear-gradient(135deg, var(--green), var(--blue)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 6px; }
+  .auth-sub { color: var(--text2); font-size: 14px; margin-bottom: 32px; }
+  .auth-tabs { display: flex; background: var(--bg); border-radius: 10px; padding: 4px; margin-bottom: 28px; }
+  .auth-tab { flex: 1; padding: 8px; text-align: center; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text2); transition: all 0.2s; }
+  .auth-tab.active { background: var(--card2); color: var(--text); }
+  .input-group { margin-bottom: 16px; }
+  .input-group label { display: block; font-size: 12px; color: var(--text2); margin-bottom: 6px; font-weight: 500; }
+  .input-group input { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; color: var(--text); font-size: 14px; font-family: 'Inter', sans-serif; outline: none; transition: border 0.2s; }
+  .input-group input:focus { border-color: var(--blue); }
+  .auth-btn { width: 100%; padding: 14px; background: linear-gradient(135deg, var(--green), #00a878); border: none; border-radius: 10px; color: #000; font-size: 15px; font-weight: 700; cursor: pointer; margin-top: 8px; font-family: 'Inter', sans-serif; transition: opacity 0.2s; }
+  .auth-btn:hover { opacity: 0.9; }
+  .auth-msg { text-align: center; font-size: 13px; margin-top: 12px; min-height: 20px; }
+
+  /* ── CARDS ── */
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 20px; }
+  .card-title { font-size: 12px; color: var(--text2); font-weight: 600; letter-spacing: 0.8px; text-transform: uppercase; margin-bottom: 12px; }
+
+  /* ── DASHBOARD ── */
+  .dash-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+  .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 20px; }
+  .stat-label { font-size: 11px; color: var(--text2); font-weight: 600; letter-spacing: 0.8px; text-transform: uppercase; margin-bottom: 8px; }
+  .stat-val { font-size: 24px; font-weight: 800; font-family: 'JetBrains Mono', monospace; }
+  .stat-sub { font-size: 12px; color: var(--text2); margin-top: 4px; }
+
+  .dash-bottom { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; }
+  .portfolio-chart-wrap { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 20px; }
+
+  /* ── MARKET PAGE ── */
+  .market-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+  .market-title { font-size: 20px; font-weight: 700; }
+  .filter-tabs { display: flex; gap: 8px; }
+  .filter-tab { padding: 7px 16px; border-radius: 20px; border: 1px solid var(--border); background: none; color: var(--text2); font-size: 12px; font-weight: 600; cursor: pointer; font-family: 'Inter', sans-serif; transition: all 0.2s; }
+  .filter-tab.active { background: var(--green); color: #000; border-color: var(--green); }
+
+  .market-table { background: var(--card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
+  .market-table table { width: 100%; border-collapse: collapse; }
+  .market-table th { padding: 14px 20px; text-align: left; font-size: 11px; color: var(--text3); font-weight: 600; letter-spacing: 0.8px; text-transform: uppercase; border-bottom: 1px solid var(--border); background: var(--bg2); }
+  .market-table td { padding: 14px 20px; font-size: 13px; border-bottom: 1px solid rgba(31,46,69,0.5); }
+  .market-table tr:last-child td { border-bottom: none; }
+  .market-table tr:hover td { background: var(--bg3); cursor: pointer; }
+  .stock-name { font-weight: 600; color: var(--text); }
+  .stock-sector { font-size: 11px; color: var(--text3); margin-top: 2px; }
+  .price-cell { font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+  .chg-badge { display: inline-block; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+  .chg-badge.up { background: rgba(0,208,156,0.12); color: var(--green); }
+  .chg-badge.down { background: rgba(255,77,109,0.12); color: var(--red); }
+  .mini-chart { width: 80px; height: 32px; }
+  .buy-btn-sm { padding: 6px 14px; background: var(--green); color: #000; border: none; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: 'Inter', sans-serif; }
+  .sell-btn-sm { padding: 6px 14px; background: var(--red); color: #fff; border: none; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: 'Inter', sans-serif; }
+
+  /* ── TRADE MODAL ── */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 2000; display: flex; align-items: flex-end; justify-content: center; backdrop-filter: blur(4px); }
+  .modal-overlay.hidden { display: none; }
+  .trade-modal { background: var(--card); border: 1px solid var(--border); border-radius: 20px 20px 0 0; width: 100%; max-width: 520px; padding: 28px; max-height: 90vh; overflow-y: auto; }
+  .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+  .modal-stock { font-size: 18px; font-weight: 700; }
+  .modal-price { font-size: 22px; font-weight: 800; font-family: 'JetBrains Mono', monospace; }
+  .modal-close { background: var(--bg3); border: none; color: var(--text2); width: 32px; height: 32px; border-radius: 8px; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; }
+  .trade-tabs { display: flex; background: var(--bg); border-radius: 10px; padding: 4px; margin-bottom: 20px; }
+  .trade-tab { flex: 1; padding: 8px; text-align: center; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 700; color: var(--text2); transition: all 0.2s; }
+  .trade-tab.buy-active { background: rgba(0,208,156,0.15); color: var(--green); }
+  .trade-tab.sell-active { background: rgba(255,77,109,0.15); color: var(--red); }
+  .trade-info-row { display: flex; justify-content: space-between; font-size: 13px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .trade-info-row:last-of-type { border-bottom: none; }
+  .trade-info-row .label { color: var(--text2); }
+  .qty-control { display: flex; align-items: center; gap: 12px; margin: 20px 0; }
+  .qty-btn { width: 36px; height: 36px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg3); color: var(--text); font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .qty-input { flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 10px; text-align: center; color: var(--text); font-size: 18px; font-weight: 700; font-family: 'JetBrains Mono', monospace; outline: none; }
+  .trade-total { background: var(--bg); border-radius: 12px; padding: 16px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; }
+  .trade-total .label { color: var(--text2); font-size: 13px; }
+  .trade-total .amount { font-size: 20px; font-weight: 800; font-family: 'JetBrains Mono', monospace; }
+  .execute-btn { width: 100%; padding: 15px; border: none; border-radius: 12px; font-size: 16px; font-weight: 700; cursor: pointer; font-family: 'Inter', sans-serif; transition: opacity 0.2s; }
+  .execute-btn.buy { background: linear-gradient(135deg, var(--green), #00a878); color: #000; }
+  .execute-btn.sell { background: linear-gradient(135deg, var(--red), #cc3355); color: #fff; }
+  .execute-btn:hover { opacity: 0.9; }
+
+  /* ── PORTFOLIO ── */
+  .portfolio-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+  .holdings-table { background: var(--card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; margin-bottom: 24px; }
+  .holdings-table table { width: 100%; border-collapse: collapse; }
+  .holdings-table th { padding: 14px 20px; text-align: left; font-size: 11px; color: var(--text3); font-weight: 600; letter-spacing: 0.8px; text-transform: uppercase; border-bottom: 1px solid var(--border); background: var(--bg2); }
+  .holdings-table td { padding: 14px 20px; font-size: 13px; border-bottom: 1px solid rgba(31,46,69,0.5); }
+  .holdings-table tr:last-child td { border-bottom: none; }
+
+  /* ── LEADERBOARD ── */
+  .lb-header { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
+  .lb-title { font-size: 22px; font-weight: 700; }
+  .lb-live { background: var(--red); border-radius: 6px; padding: 3px 8px; font-size: 10px; font-weight: 700; letter-spacing: 1px; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.6} }
+  @keyframes loading { 0%{transform:translateX(-100%)} 100%{transform:translateX(250%)} }
+  .lb-table { background: var(--card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
+  .lb-table table { width: 100%; border-collapse: collapse; }
+  .lb-table th { padding: 14px 24px; text-align: left; font-size: 11px; color: var(--text3); font-weight: 600; letter-spacing: 0.8px; text-transform: uppercase; border-bottom: 1px solid var(--border); background: var(--bg2); }
+  .lb-table td { padding: 16px 24px; font-size: 14px; border-bottom: 1px solid rgba(31,46,69,0.5); }
+  .lb-table tr:last-child td { border-bottom: none; }
+  .rank-badge { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px; }
+  .rank-1 { background: linear-gradient(135deg, #f59e0b, #fbbf24); color: #000; }
+  .rank-2 { background: linear-gradient(135deg, #9ca3af, #d1d5db); color: #000; }
+  .rank-3 { background: linear-gradient(135deg, #b45309, #d97706); color: #fff; }
+  .rank-other { background: var(--bg3); color: var(--text2); }
+  .lb-you { background: rgba(59,130,246,0.08) !important; }
+
+  /* ── HISTORY ── */
+  .history-list { background: var(--card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
+  .history-item { padding: 16px 20px; border-bottom: 1px solid rgba(31,46,69,0.5); display: flex; justify-content: space-between; align-items: center; }
+  .history-item:last-child { border-bottom: none; }
+  .history-type { display: inline-block; padding: 3px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; margin-right: 10px; }
+  .history-type.BUY { background: rgba(0,208,156,0.15); color: var(--green); }
+  .history-type.SELL { background: rgba(255,77,109,0.15); color: var(--red); }
+
+  /* ── CHART MODAL ── */
+  .chart-modal { background: var(--card); border: 1px solid var(--border); border-radius: 20px 20px 0 0; width: 100%; max-width: 700px; padding: 28px; }
+
+  /* ── SEARCH ── */
+  .search-bar { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 10px 16px; display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
+  .search-bar input { background: none; border: none; color: var(--text); font-size: 14px; font-family: 'Inter', sans-serif; outline: none; flex: 1; }
+  .search-bar span { color: var(--text3); }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 768px) {
+    .dash-grid { grid-template-columns: 1fr 1fr; }
+    .dash-bottom { grid-template-columns: 1fr; }
+    .portfolio-grid { grid-template-columns: 1fr; }
+    .nav-links { display: none; }
+    .main { padding: 16px; }
+  }
+
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 5px; font-size: 10px; font-weight: 700; margin-left: 6px; }
+  .tag-etf { background: rgba(59,130,246,0.15); color: var(--blue); }
+  .tag-comm { background: rgba(245,158,11,0.15); color: var(--gold); }
+  .tag-bond { background: rgba(139,92,246,0.15); color: var(--purple); }
+
+  .empty-state { text-align: center; padding: 48px 20px; color: var(--text2); }
+  .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+  .empty-state p { font-size: 15px; }
+
+  .toast { position: fixed; bottom: 24px; right: 24px; background: var(--card2); border: 1px solid var(--border); border-radius: 12px; padding: 14px 20px; font-size: 14px; z-index: 3000; transform: translateY(100px); opacity: 0; transition: all 0.3s; max-width: 320px; }
+  .toast.show { transform: translateY(0); opacity: 1; }
+  .toast.success { border-left: 3px solid var(--green); }
+  .toast.error { border-left: 3px solid var(--red); }
+
+  /* NEWS */
+  .news-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 20px; margin-bottom: 14px; transition: border-color 0.2s; }
+  .news-card:hover { border-color: var(--blue); }
+  .news-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+  .news-impact { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: 700; }
+  .news-impact.positive { background: rgba(0,208,156,0.15); color: var(--green); }
+  .news-impact.negative { background: rgba(255,77,109,0.15); color: var(--red); }
+  .news-impact.neutral { background: rgba(59,130,246,0.15); color: var(--blue); }
+  .news-title { font-size: 15px; font-weight: 700; margin-bottom: 6px; line-height: 1.4; }
+  .news-body { font-size: 13px; color: var(--text2); line-height: 1.6; margin-bottom: 12px; }
+  .news-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+  .news-tag { background: var(--bg3); border-radius: 6px; padding: 3px 8px; font-size: 11px; color: var(--text2); }
+  .news-time { font-size: 11px; color: var(--text3); white-space: nowrap; }
+
+  /* LEARN */
+  .facts-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  .fact-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 22px; position: relative; overflow: hidden; }
+  .fact-emoji { font-size: 32px; margin-bottom: 12px; }
+  .fact-title { font-size: 14px; font-weight: 700; margin-bottom: 8px; color: var(--text); }
+  .fact-body { font-size: 13px; color: var(--text2); line-height: 1.6; }
+  .fact-accent { position: absolute; top: 0; right: 0; width: 60px; height: 60px; border-radius: 0 16px 0 60px; opacity: 0.15; }
+
+  /* ALERT BADGE */
+  .alert-dot { width: 8px; height: 8px; background: var(--gold); border-radius: 50%; display: inline-block; margin-left: 4px; animation: pulse 1.5s infinite; }
+
+  /* MARKET STATUS */
+  .market-open { background: rgba(0,208,156,0.15); color: var(--green); }
+  .market-closed { background: rgba(245,158,11,0.15); color: var(--gold); }
+  .market-pre { background: rgba(59,130,246,0.15); color: var(--blue); }
+
+  /* PORTFOLIO GROWTH */
+  .pg-filter { padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:none;color:var(--text2);font-size:11px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;transition:all 0.2s; }
+  .active-pg { background:var(--green) !important;color:#000 !important;border-color:var(--green) !important; }
+  .sip-freq-btn { padding:10px 8px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text2);font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;text-align:center;transition:all 0.2s; }
+  .active-freq { border-color:var(--green) !important;background:rgba(0,208,156,0.12) !important;color:var(--green) !important; }
+  .sip-card { background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:14px; }
+  .sip-card-header { display:flex;justify-content:space-between;align-items:center;margin-bottom:14px; }
+  .sip-badge { display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700; }
+  .sip-active { background:rgba(0,208,156,0.12);color:var(--green); }
+  .sip-paused { background:rgba(245,158,11,0.12);color:var(--gold); }
+  .sip-grid { display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px; }
+  .sip-stat { background:var(--bg);border-radius:10px;padding:10px 12px; }
+  .sip-stat-label { font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px; }
+  .sip-stat-val { font-size:14px;font-weight:700;font-family:'JetBrains Mono',monospace; }
+  .sip-progress { height:4px;background:var(--bg3);border-radius:4px;overflow:hidden;margin-bottom:14px; }
+  .sip-progress-fill { height:100%;background:linear-gradient(90deg,var(--green),var(--blue));border-radius:4px;transition:width 0.5s; }
+</style>
+</head>
+<body>
+
+<!-- TICKER -->
+<div class="ticker-wrap">
+  <div class="ticker-label">⚡ LIVE</div>
+  <div style="overflow:hidden;flex:1;display:flex;">
+    <div class="ticker-track" id="tickerTrack"></div>
+  </div>
+</div>
+
+<!-- NAVBAR -->
+<div class="navbar" id="navbar" style="display:none">
+  <div class="logo">Stock<span>Wave</span></div>
+  <div class="nav-links">
+    <button class="nav-btn active" onclick="showPage('home')">Home</button>
+    <button class="nav-btn" onclick="showPage('explore')">Explore</button>
+    <button class="nav-btn" onclick="showPage('holdings')">Holdings</button>
+    <button class="nav-btn" onclick="showPage('watchlist')">⭐ Watchlist</button>
+    <button class="nav-btn" onclick="showPage('news')">📰 News</button>
+    <button class="nav-btn" onclick="showPage('sip')">🔄 SIP</button>
+    <button class="nav-btn" onclick="showPage('orders')">Orders</button>
+    <button class="nav-btn" onclick="showPage('leaderboard')">Leaderboard</button>
+    <button class="nav-btn" onclick="showPage('learn')">🎓 Learn</button>
+  </div>
+  <div class="nav-right">
+    <div id="marketStatusChip" style="padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700;margin-right:4px"></div>
+    <div class="balance-chip"><span>Available </span><span class="balance-amt" id="navBalance">₹0</span></div>
+    <div class="user-chip" id="userChip" onclick="logout()">👤 Logout</div>
+  </div>
+</div>
+
+<!-- AUTH PAGE -->
+<div class="auth-page" id="authPage">
+  <div class="auth-card">
+    <div class="auth-logo">StockWave</div>
+    <div class="auth-sub">India's #1 Classroom Trading Simulator 🚀</div>
+    <div class="auth-tabs">
+      <div class="auth-tab active" onclick="switchAuthTab('login')">Login</div>
+      <div class="auth-tab" onclick="switchAuthTab('register')">Register</div>
+    </div>
+    <div id="loginForm">
+      <div class="input-group"><label>Roll Number</label><input type="text" id="loginRoll" placeholder="e.g. 2024CS001"></div>
+      <div class="input-group"><label>Password</label><input type="password" id="loginPass" placeholder="Your password"></div>
+      <button class="auth-btn" onclick="login()">Login to Trade →</button>
+    </div>
+    <div id="registerForm" style="display:none">
+      <div class="input-group"><label>Full Name</label><input type="text" id="regName" placeholder="e.g. Priya Sharma"></div>
+      <div class="input-group"><label>Roll Number</label><input type="text" id="regRoll" placeholder="e.g. 2024CS001"></div>
+      <div class="input-group"><label>Password</label><input type="password" id="regPass" placeholder="Create a password"></div>
+      <button class="auth-btn" onclick="register()">Create Account →</button>
+    </div>
+    <div class="auth-msg" id="authMsg"></div>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div class="main" id="mainApp" style="display:none">
+
+  <!-- DASHBOARD -->
+  <div class="page active" id="page-home">
+    <div class="dash-grid">
+      <div class="stat-card">
+        <div class="stat-label">Total Value</div>
+        <div class="stat-val" id="totalValue">₹0</div>
+        <div class="stat-sub" id="totalReturn">+₹0 (0%)</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Available Funds</div>
+        <div class="stat-val" id="cashVal">₹0</div>
+        <div class="stat-sub">Funds available to invest</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Today's P&L</div>
+        <div class="stat-val" id="todayPnl">₹0</div>
+        <div class="stat-sub" id="todayPct">0%</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Stocks</div>
+        <div class="stat-val" id="holdingCount">0</div>
+        <div class="stat-sub">Stocks held</div>
+      </div>
+    </div>
+    <div class="dash-bottom">
+      <div class="portfolio-chart-wrap">
+        <div class="card-title">Value Over Time</div>
+        <canvas id="portfolioChart" height="180"></canvas>
+      </div>
+      <div class="card">
+        <div class="card-title">Allocation</div>
+        <canvas id="allocChart" height="180"></canvas>
+      </div>
+    </div>
+    <div style="margin-top:16px">
+      <div class="card">
+        <div class="card-title">Top Movers</div>
+        <div id="topMovers" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MARKET -->
+  <div class="page" id="page-explore">
+    <div class="market-header">
+      <div class="market-title">Explore</div>
+      <div class="filter-tabs">
+        <button class="filter-tab active" onclick="filterMarket('ALL',this)">All</button>
+        <button class="filter-tab" onclick="filterMarket('EQUITY',this)">Stocks</button>
+        <button class="filter-tab" onclick="filterMarket('ETF',this)">ETFs</button>
+        <button class="filter-tab" onclick="filterMarket('COMMODITY',this)">Commodities</button>
+        <button class="filter-tab" onclick="filterMarket('BOND',this)">Bonds</button>
+      </div>
+    </div>
+    <div class="search-bar">
+      <span>🔍</span>
+      <input type="text" placeholder="Search stocks, ETFs, commodities..." id="searchInput" oninput="renderMarketTable()">
+    </div>
+    <div class="market-table" id="marketTable"></div>
+  </div>
+
+  <!-- PORTFOLIO -->
+  <div class="page" id="page-holdings">
+
+    <!-- PORTFOLIO GROWTH HEADER -->
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:20px;padding:24px;margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;flex-wrap:wrap;gap:12px">
+        <div>
+          <div style="font-size:12px;color:var(--text2);font-weight:600;letter-spacing:0.8px;text-transform:uppercase;margin-bottom:6px">Current Value</div>
+          <div style="font-size:36px;font-weight:800;font-family:'JetBrains Mono',monospace" id="pgCurrentVal">₹0</div>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
+            <span id="pgPnlBadge" style="font-size:13px;font-weight:700;padding:4px 10px;border-radius:8px">+₹0</span>
+            <span id="pgPctBadge" style="font-size:13px;font-weight:700;padding:4px 10px;border-radius:8px">0%</span>
+            <span style="font-size:12px;color:var(--text3)">overall</span>
+          </div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:12px;color:var(--text2);font-weight:600;margin-bottom:4px">Starting Capital</div>
+          <div style="font-size:18px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--text2)">₹50,000</div>
+        </div>
+      </div>
+
+      <!-- TIME FILTER -->
+      <div style="display:flex;gap:6px;margin-bottom:16px" id="pgTimeFilters">
+        <button onclick="setPgFilter('ALL',this)" class="pg-filter active-pg">ALL</button>
+        <button onclick="setPgFilter('1D',this)" class="pg-filter">1D</button>
+        <button onclick="setPgFilter('1W',this)" class="pg-filter">1W</button>
+        <button onclick="setPgFilter('1M',this)" class="pg-filter">1M</button>
+      </div>
+
+      <!-- GROWTH CHART -->
+      <canvas id="pgChart" height="160"></canvas>
+    </div>
+
+    <!-- STATS ROW -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px">
+      <div class="card" style="text-align:center">
+        <div class="card-title">Invested</div>
+        <div class="stat-val" style="font-size:18px" id="pInvested">₹0</div>
+      </div>
+      <div class="card" style="text-align:center">
+        <div class="card-title">Total P&L</div>
+        <div class="stat-val" style="font-size:18px" id="pReturns">₹0</div>
+      </div>
+      <div class="card" style="text-align:center">
+        <div class="card-title">P&L %</div>
+        <div class="stat-val" style="font-size:18px" id="pReturnsPct">0%</div>
+      </div>
+    </div>
+
+    <!-- BEST / WORST -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+      <div class="card">
+        <div class="card-title">🏆 Best Performer</div>
+        <div id="pgBest" style="margin-top:8px">—</div>
+      </div>
+      <div class="card">
+        <div class="card-title">📉 Worst Performer</div>
+        <div id="pgWorst" style="margin-top:8px">—</div>
+      </div>
+    </div>
+
+    <!-- RISK METER -->
+    <div class="card" style="margin-bottom:16px" id="riskMeterCard">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <div class="card-title" style="margin:0">⚖️ Risk Meter</div>
+        <span id="riskLabel" style="font-size:12px;font-weight:700;padding:4px 12px;border-radius:20px">—</span>
+      </div>
+      <!-- SVG Gauge -->
+      <div style="display:flex;justify-content:center;margin-bottom:16px">
+        <svg width="260" height="140" viewBox="0 0 260 140">
+          <!-- Background arc segments -->
+          <path d="M 20 130 A 110 110 0 0 1 67 27" stroke="#1e3a2e" stroke-width="18" fill="none" stroke-linecap="round"/>
+          <path d="M 67 27 A 110 110 0 0 1 130 10" stroke="#2e3a1e" stroke-width="18" fill="none" stroke-linecap="round"/>
+          <path d="M 130 10 A 110 110 0 0 1 193 27" stroke="#3a2e1e" stroke-width="18" fill="none" stroke-linecap="round"/>
+          <path d="M 193 27 A 110 110 0 0 1 240 130" stroke="#3a1e1e" stroke-width="18" fill="none" stroke-linecap="round"/>
+          <!-- Colored arc segments -->
+          <path id="riskArc1" d="M 20 130 A 110 110 0 0 1 67 27" stroke="#00d09c" stroke-width="18" fill="none" stroke-linecap="round" opacity="0.3"/>
+          <path id="riskArc2" d="M 67 27 A 110 110 0 0 1 130 10" stroke="#a3e635" stroke-width="18" fill="none" stroke-linecap="round" opacity="0.3"/>
+          <path id="riskArc3" d="M 130 10 A 110 110 0 0 1 193 27" stroke="#f59e0b" stroke-width="18" fill="none" stroke-linecap="round" opacity="0.3"/>
+          <path id="riskArc4" d="M 193 27 A 110 110 0 0 1 240 130" stroke="#ff4d6d" stroke-width="18" fill="none" stroke-linecap="round" opacity="0.3"/>
+          <!-- Needle -->
+          <line id="riskNeedle" x1="130" y1="130" x2="130" y2="30" stroke="#e8edf5" stroke-width="3" stroke-linecap="round" style="transform-origin:130px 130px;transform:rotate(-90deg);transition:transform 1s cubic-bezier(0.34,1.56,0.64,1)"/>
+          <circle cx="130" cy="130" r="8" fill="#1a2235" stroke="#e8edf5" stroke-width="2"/>
+          <!-- Labels -->
+          <text x="12" y="125" fill="#00d09c" font-size="9" font-family="Inter" font-weight="700">LOW</text>
+          <text x="95" y="18" fill="#a3e635" font-size="9" font-family="Inter" font-weight="700">MEDIUM</text>
+          <text x="192" y="18" fill="#f59e0b" font-size="9" font-family="Inter" font-weight="700">HIGH</text>
+          <text x="218" y="125" fill="#ff4d6d" font-size="9" font-family="Inter" font-weight="700">V.HIGH</text>
+          <!-- Score -->
+          <text id="riskScoreText" x="130" y="108" fill="#e8edf5" font-size="22" font-family="JetBrains Mono" font-weight="800" text-anchor="middle">—</text>
+          <text x="130" y="122" fill="#8fa3bf" font-size="9" font-family="Inter" text-anchor="middle">RISK SCORE</text>
+        </svg>
+      </div>
+      <!-- Breakdown bars -->
+      <div id="riskBreakdown" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px"></div>
+      <!-- Tip -->
+      <div id="riskTip" style="background:var(--bg);border-radius:10px;padding:12px 14px;font-size:13px;color:var(--text2);line-height:1.6;border-left:3px solid var(--blue)"></div>
+    </div>
+
+    <!-- HOLDINGS TABLE -->
+    <div class="holdings-table" id="holdingsTable"></div>
+  </div>
+
+  <!-- ORDERS -->
+  <div class="page" id="page-orders">
+    <h2 style="margin-bottom:20px;font-size:20px;font-weight:700">Orders</h2>
+    <div class="history-list" id="historyList"></div>
+  </div>
+
+  <!-- LEADERBOARD -->
+  <div class="page" id="page-leaderboard">
+    <div class="lb-header">
+      <div class="lb-title">Leaderboard</div>
+      <div class="lb-live">LIVE</div>
+    </div>
+    <div class="lb-table" id="lbTable"></div>
+  </div>
+
+  <!-- WATCHLIST -->
+  <div class="page" id="page-watchlist">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+      <h2 style="font-size:20px;font-weight:700">⭐ Watchlist</h2>
+      <div class="search-bar" style="width:280px;margin:0">
+        <span>🔍</span>
+        <input type="text" placeholder="Add stock to watchlist..." id="watchlistSearch" oninput="renderWatchlistSearch()">
+      </div>
+    </div>
+    <div id="watchlistSearchResults" style="margin-bottom:16px"></div>
+    <div class="market-table" id="watchlistTable"></div>
+  </div>
+
+  <!-- NEWS -->
+  <div class="page" id="page-news">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+      <h2 style="font-size:20px;font-weight:700">📰 Market News</h2>
+      <div style="background:var(--red);border-radius:6px;padding:3px 8px;font-size:10px;font-weight:700;animation:pulse 2s infinite">LIVE</div>
+    </div>
+    <div id="newsFeed"></div>
+  </div>
+
+  <!-- SIP -->
+  <div class="page" id="page-sip">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:gap">
+      <div>
+        <h2 style="font-size:22px;font-weight:800;margin-bottom:4px">🔄 SIP Manager</h2>
+        <p style="color:var(--text2);font-size:13px">Systematic Investment Plan — invest fixed amounts automatically</p>
+      </div>
+      <button onclick="openSipModal()" style="padding:10px 20px;background:linear-gradient(135deg,var(--green),#00a878);border:none;border-radius:10px;color:#000;font-weight:700;font-size:14px;cursor:pointer;font-family:'Inter',sans-serif">+ New SIP</button>
+    </div>
+    <div id="sipStats" style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px"></div>
+    <div id="sipList"></div>
+  </div>
+
+  <!-- LEARN -->
+  <div class="page" id="page-learn">
+    <div style="margin-bottom:24px">
+      <h2 style="font-size:22px;font-weight:800;margin-bottom:4px">🎓 Learning Corner</h2>
+      <p style="color:var(--text2);font-size:14px">Fun facts & knowledge about Indian stock markets</p>
+    </div>
+    <div id="learnContent"></div>
+  </div>
+
+</div>
+
+<!-- TRADE MODAL -->
+<div class="modal-overlay hidden" id="tradeModal">
+  <div class="trade-modal">
+    <div class="modal-header">
+      <div>
+        <div class="modal-stock" id="modalStock">RELIANCE</div>
+        <div style="color:var(--text2);font-size:12px" id="modalStockFull">Reliance Industries Ltd</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <div class="modal-price" id="modalPrice">₹0</div>
+        <button class="modal-close" onclick="closeModal()">✕</button>
+      </div>
+    </div>
+    <div class="trade-tabs">
+      <div class="trade-tab buy-active" id="tabBuy" onclick="setTradeType('BUY')">BUY</div>
+      <div class="trade-tab" id="tabSell" onclick="setTradeType('SELL')">SELL</div>
+    </div>
+    <div class="trade-info-row"><span class="label">Available Funds</span><span id="modalBalance" style="font-family:'JetBrains Mono',monospace;font-weight:600"></span></div>
+    <div class="trade-info-row" id="sharesOwnedRow" style="display:none"><span class="label">Shares Owned</span><span id="modalOwned" style="font-family:'JetBrains Mono',monospace;font-weight:600"></span></div>
+    <div style="margin:20px 0 8px;font-size:12px;color:var(--text2);font-weight:600">QUANTITY</div>
+    <div class="qty-control">
+      <button class="qty-btn" onclick="changeQty(-1)">−</button>
+      <input type="number" class="qty-input" id="qtyInput" value="1" min="1" oninput="updateTotal()">
+      <button class="qty-btn" onclick="changeQty(1)">+</button>
+    </div>
+    <div class="trade-total">
+      <div class="label">Total Amount</div>
+      <div class="amount" id="tradeTotal">₹0</div>
+    </div>
+    <button class="execute-btn buy" id="executeBtn" onclick="executeTrade()">Buy</button>
+  </div>
+</div>
+
+<!-- CHART MODAL -->
+<div class="modal-overlay hidden" id="chartModal">
+  <div class="chart-modal">
+    <div class="modal-header">
+      <div>
+        <div class="modal-stock" id="chartModalStock"></div>
+        <div style="color:var(--text2);font-size:12px" id="chartModalFull"></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <div class="modal-price" id="chartModalPrice"></div>
+        <button class="modal-close" onclick="closeChartModal()">✕</button>
+      </div>
+    </div>
+    <canvas id="stockDetailChart" height="200"></canvas>
+    <div style="display:flex;gap:10px;margin-top:16px">
+      <button class="execute-btn buy" style="flex:1" onclick="openTradeFromChart('BUY')">Buy</button>
+      <button class="execute-btn sell" style="flex:1" onclick="openTradeFromChart('SELL')">Sell</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- SIP MODAL -->
+<div class="modal-overlay hidden" id="sipModal">
+  <div class="trade-modal" style="max-width:480px">
+    <div class="modal-header">
+      <div>
+        <div class="modal-stock">🔄 Create New SIP</div>
+        <div style="color:var(--text2);font-size:12px">Automated recurring investment</div>
+      </div>
+      <button class="modal-close" onclick="closeSipModal()">✕</button>
+    </div>
+
+    <div class="input-group">
+      <label>Select Instrument</label>
+      <input type="text" id="sipSearchInput" placeholder="Search ETF or Nifty 50 stock..." oninput="renderSipSearch()" style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px 14px;color:var(--text);font-size:14px;font-family:'Inter',sans-serif;outline:none;width:100%">
+      <div id="sipSearchDropdown" style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;margin-top:6px;max-height:160px;overflow-y:auto;display:none"></div>
+    </div>
+    <div id="sipSelectedInst" style="display:none;background:var(--bg);border-radius:10px;padding:12px 14px;margin-bottom:14px;display:none;align-items:center;justify-content:space-between">
+      <div>
+        <div id="sipSelSym" style="font-weight:700"></div>
+        <div id="sipSelName" style="font-size:11px;color:var(--text2)"></div>
+      </div>
+      <div id="sipSelPrice" style="font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--green)"></div>
+    </div>
+
+    <div class="input-group">
+      <label>SIP Amount (₹)</label>
+      <input type="number" id="sipAmount" placeholder="Min ₹100" min="100" style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px 14px;color:var(--text);font-size:14px;font-family:'Inter',sans-serif;outline:none;width:100%">
+      <div style="display:flex;gap:8px;margin-top:8px">
+        ${[500,1000,2000,5000].map(a=>`<button onclick="document.getElementById('sipAmount').value=${a}" style="flex:1;padding:6px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);font-size:12px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif">₹${a}</button>`).join('')}
+      </div>
+    </div>
+
+    <div class="input-group">
+      <label>Frequency</label>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px" id="sipFreqBtns">
+        <button onclick="selectSipFreq('daily',this)" class="sip-freq-btn active-freq" data-freq="daily">📅 Daily<div style="font-size:10px;color:var(--text3);margin-top:2px">Every 30 sec</div></button>
+        <button onclick="selectSipFreq('weekly',this)" class="sip-freq-btn" data-freq="weekly">📆 Weekly<div style="font-size:10px;color:var(--text3);margin-top:2px">Every 2 min</div></button>
+        <button onclick="selectSipFreq('monthly',this)" class="sip-freq-btn" data-freq="monthly">🗓️ Monthly<div style="font-size:10px;color:var(--text3);margin-top:2px">Every 5 min</div></button>
+      </div>
+    </div>
+
+    <div style="background:var(--bg);border-radius:12px;padding:14px;margin-bottom:16px">
+      <div style="font-size:12px;color:var(--text2);margin-bottom:8px;font-weight:600">📊 PROJECTION (estimated)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px" id="sipProjection">
+        <div><div style="font-size:11px;color:var(--text3)">Units/installment</div><div id="sipUnitsEst" style="font-weight:700;font-family:'JetBrains Mono',monospace">—</div></div>
+        <div><div style="font-size:11px;color:var(--text3)">Balance after</div><div id="sipBalAfter" style="font-weight:700;font-family:'JetBrains Mono',monospace">—</div></div>
+      </div>
+    </div>
+
+    <button class="execute-btn buy" onclick="createSip()">Start SIP 🔄</button>
+  </div>
+</div>
+
+<!-- ALERT MODAL -->
+<div class="modal-overlay hidden" id="alertModal">
+  <div class="trade-modal" style="max-width:400px">
+    <div class="modal-header">
+      <div>
+        <div class="modal-stock">🔔 Set Price Alert</div>
+        <div style="color:var(--text2);font-size:12px" id="alertStockName"></div>
+      </div>
+      <button class="modal-close" onclick="closeAlertModal()">✕</button>
+    </div>
+    <div style="margin-bottom:12px;font-size:13px;color:var(--text2)">Current Price: <span id="alertCurrentPrice" style="color:var(--text);font-weight:700;font-family:'JetBrains Mono',monospace"></span></div>
+    <div class="input-group">
+      <label>Alert me when price reaches</label>
+      <input type="number" id="alertPrice" placeholder="Enter target price ₹" style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px 14px;color:var(--text);font-size:14px;font-family:'Inter',sans-serif;outline:none;width:100%">
+    </div>
+    <div style="display:flex;gap:8px;margin-top:4px;margin-bottom:16px">
+      <button onclick="setAlertType('above')" id="alertAboveBtn" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--green);background:rgba(0,208,156,0.15);color:var(--green);font-weight:700;cursor:pointer;font-family:'Inter',sans-serif">▲ Above</button>
+      <button onclick="setAlertType('below')" id="alertBelowBtn" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--border);background:none;color:var(--text2);font-weight:700;cursor:pointer;font-family:'Inter',sans-serif">▼ Below</button>
+    </div>
+    <button class="execute-btn buy" onclick="saveAlert()">Set Alert 🔔</button>
+  </div>
+</div>
+
+<!-- AMO MODAL -->
+<div class="modal-overlay hidden" id="amoModal">
+  <div class="trade-modal" style="max-width:420px">
+    <div class="modal-header">
+      <div>
+        <div class="modal-stock">🌙 After Market Order</div>
+        <div style="color:var(--text2);font-size:12px" id="amoStockName"></div>
+      </div>
+      <button class="modal-close" onclick="document.getElementById('amoModal').classList.add('hidden')">✕</button>
+    </div>
+    <div style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:12px;padding:14px;margin-bottom:16px">
+      <div style="color:var(--gold);font-weight:700;font-size:13px;margin-bottom:4px">⏰ Market is Closed</div>
+      <div style="color:var(--text2);font-size:12px">Market hours: 9:15 AM – 3:30 PM. Your AMO will execute when market opens tomorrow.</div>
+    </div>
+    <div class="trade-tabs">
+      <div class="trade-tab buy-active" id="amoTabBuy" onclick="setAmoType('BUY')">BUY</div>
+      <div class="trade-tab" id="amoTabSell" onclick="setAmoType('SELL')">SELL</div>
+    </div>
+    <div class="trade-info-row"><span class="label">Price at close</span><span id="amoPriceDisplay" style="font-family:'JetBrains Mono',monospace;font-weight:600"></span></div>
+    <div class="trade-info-row"><span class="label">Available Funds</span><span id="amoBalance" style="font-family:'JetBrains Mono',monospace;font-weight:600"></span></div>
+    <div style="margin:16px 0 8px;font-size:12px;color:var(--text2);font-weight:600">QUANTITY</div>
+    <div class="qty-control">
+      <button class="qty-btn" onclick="changeAmoQty(-1)">−</button>
+      <input type="number" class="qty-input" id="amoQtyInput" value="1" min="1" oninput="updateAmoTotal()">
+      <button class="qty-btn" onclick="changeAmoQty(1)">+</button>
+    </div>
+    <div class="trade-total">
+      <div class="label">Estimated Total</div>
+      <div class="amount" id="amoTotal">₹0</div>
+    </div>
+    <button class="execute-btn buy" id="amoExecuteBtn" onclick="executeAmo()">Place AMO 🌙</button>
+  </div>
+</div>
+
+<script>
+// ─── DATA ─────────────────────────────────────────────────────────────────────
+// prevClose = yesterday's official closing price (realistic, slightly different from today's open)
+const INSTRUMENTS = [
+  // NIFTY 50 EQUITIES
+  {sym:'RELIANCE',name:'Reliance Industries Ltd',sector:'Energy',type:'EQUITY',price:1428.50,prevClose:1410.25,vol:2.3},
+  {sym:'TCS',name:'Tata Consultancy Services',sector:'IT',type:'EQUITY',price:3812.75,prevClose:3798.40,vol:1.8},
+  {sym:'HDFCBANK',name:'HDFC Bank Ltd',sector:'Banking',type:'EQUITY',price:1642.30,prevClose:1658.75,vol:2.1},
+  {sym:'INFY',name:'Infosys Ltd',sector:'IT',type:'EQUITY',price:1589.60,prevClose:1574.20,vol:2.4},
+  {sym:'ICICIBANK',name:'ICICI Bank Ltd',sector:'Banking',type:'EQUITY',price:1124.45,prevClose:1118.90,vol:1.9},
+  {sym:'HINDUNILVR',name:'Hindustan Unilever Ltd',sector:'FMCG',type:'EQUITY',price:2298.80,prevClose:2312.50,vol:1.2},
+  {sym:'BHARTIARTL',name:'Bharti Airtel Ltd',sector:'Telecom',type:'EQUITY',price:1584.20,prevClose:1568.35,vol:2.0},
+  {sym:'ITC',name:'ITC Ltd',sector:'FMCG',type:'EQUITY',price:427.65,prevClose:424.10,vol:1.5},
+  {sym:'KOTAKBANK',name:'Kotak Mahindra Bank',sector:'Banking',type:'EQUITY',price:1742.35,prevClose:1758.80,vol:1.7},
+  {sym:'LT',name:'Larsen & Toubro Ltd',sector:'Infrastructure',type:'EQUITY',price:3524.90,prevClose:3498.60,vol:1.6},
+  {sym:'SBIN',name:'State Bank of India',sector:'Banking',type:'EQUITY',price:812.45,prevClose:824.30,vol:2.5},
+  {sym:'AXISBANK',name:'Axis Bank Ltd',sector:'Banking',type:'EQUITY',price:1098.70,prevClose:1084.25,vol:2.2},
+  {sym:'BAJFINANCE',name:'Bajaj Finance Ltd',sector:'NBFC',type:'EQUITY',price:6842.15,prevClose:6924.50,vol:2.8},
+  {sym:'MARUTI',name:'Maruti Suzuki India',sector:'Auto',type:'EQUITY',price:12485.30,prevClose:12348.75,vol:1.4},
+  {sym:'ASIANPAINT',name:'Asian Paints Ltd',sector:'Consumer',type:'EQUITY',price:2384.50,prevClose:2398.20,vol:1.3},
+  {sym:'TITAN',name:'Titan Company Ltd',sector:'Consumer',type:'EQUITY',price:3248.75,prevClose:3212.40,vol:1.9},
+  {sym:'WIPRO',name:'Wipro Ltd',sector:'IT',type:'EQUITY',price:478.90,prevClose:484.65,vol:2.1},
+  {sym:'HCLTECH',name:'HCL Technologies Ltd',sector:'IT',type:'EQUITY',price:1542.60,prevClose:1528.90,vol:1.8},
+  {sym:'SUNPHARMA',name:'Sun Pharmaceutical',sector:'Pharma',type:'EQUITY',price:1648.25,prevClose:1634.80,vol:1.6},
+  {sym:'POWERGRID',name:'Power Grid Corp',sector:'Utilities',type:'EQUITY',price:312.45,prevClose:308.90,vol:1.4},
+  {sym:'NTPC',name:'NTPC Ltd',sector:'Utilities',type:'EQUITY',price:348.70,prevClose:352.40,vol:1.5},
+  {sym:'ONGC',name:'Oil & Natural Gas Corp',sector:'Energy',type:'EQUITY',price:264.35,prevClose:268.90,vol:2.0},
+  {sym:'COALINDIA',name:'Coal India Ltd',sector:'Mining',type:'EQUITY',price:398.55,prevClose:392.30,vol:1.8},
+  {sym:'TATASTEEL',name:'Tata Steel Ltd',sector:'Metals',type:'EQUITY',price:142.80,prevClose:139.45,vol:3.2},
+  {sym:'JSWSTEEL',name:'JSW Steel Ltd',sector:'Metals',type:'EQUITY',price:924.15,prevClose:938.70,vol:2.5},
+  {sym:'HINDALCO',name:'Hindalco Industries',sector:'Metals',type:'EQUITY',price:628.40,prevClose:618.25,vol:2.3},
+  {sym:'ULTRACEMCO',name:'UltraTech Cement',sector:'Cement',type:'EQUITY',price:10248.60,prevClose:10184.35,vol:1.5},
+  {sym:'NESTLEIND',name:'Nestle India Ltd',sector:'FMCG',type:'EQUITY',price:2284.75,prevClose:2298.40,vol:1.1},
+  {sym:'DRREDDY',name:'Dr. Reddy\'s Labs',sector:'Pharma',type:'EQUITY',price:5842.30,prevClose:5798.65,vol:1.7},
+  {sym:'CIPLA',name:'Cipla Ltd',sector:'Pharma',type:'EQUITY',price:1484.90,prevClose:1498.35,vol:1.6},
+  {sym:'DIVISLAB',name:'Divi\'s Laboratories',sector:'Pharma',type:'EQUITY',price:4248.15,prevClose:4214.80,vol:1.4},
+  {sym:'TECHM',name:'Tech Mahindra Ltd',sector:'IT',type:'EQUITY',price:1524.35,prevClose:1512.90,vol:2.0},
+  {sym:'BAJAJFINSV',name:'Bajaj Finserv Ltd',sector:'Finance',type:'EQUITY',price:1642.80,prevClose:1658.45,vol:1.8},
+  {sym:'HDFCLIFE',name:'HDFC Life Insurance',sector:'Insurance',type:'EQUITY',price:624.50,prevClose:618.75,vol:1.5},
+  {sym:'SBILIFE',name:'SBI Life Insurance',sector:'Insurance',type:'EQUITY',price:1484.25,prevClose:1498.60,vol:1.4},
+  {sym:'INDUSINDBK',name:'IndusInd Bank Ltd',sector:'Banking',type:'EQUITY',price:842.60,prevClose:858.35,vol:2.8},
+  {sym:'GRASIM',name:'Grasim Industries',sector:'Diversified',type:'EQUITY',price:2484.40,prevClose:2468.75,vol:1.6},
+  {sym:'ADANIPORTS',name:'Adani Ports & SEZ',sector:'Infrastructure',type:'EQUITY',price:1248.70,prevClose:1234.45,vol:2.4},
+  {sym:'TATAMOTORS',name:'Tata Motors Ltd',sector:'Auto',type:'EQUITY',price:742.35,prevClose:728.90,vol:2.9},
+  {sym:'EICHERMOT',name:'Eicher Motors Ltd',sector:'Auto',type:'EQUITY',price:4842.80,prevClose:4824.35,vol:1.5},
+  {sym:'HEROMOTOCO',name:'Hero MotoCorp Ltd',sector:'Auto',type:'EQUITY',price:4184.60,prevClose:4198.25,vol:1.4},
+  {sym:'BPCL',name:'Bharat Petroleum Corp',sector:'Energy',type:'EQUITY',price:312.45,prevClose:318.90,vol:2.2},
+  {sym:'BRITANNIA',name:'Britannia Industries',sector:'FMCG',type:'EQUITY',price:5124.80,prevClose:5098.45,vol:1.2},
+  {sym:'APOLLOHOSP',name:'Apollo Hospitals',sector:'Healthcare',type:'EQUITY',price:6248.35,prevClose:6184.70,vol:1.8},
+  {sym:'TATACONSUM',name:'Tata Consumer Products',sector:'FMCG',type:'EQUITY',price:1042.60,prevClose:1034.85,vol:1.6},
+  // NIFTY 50 ETFs
+  {sym:'NIFTYBEES',name:'Nippon India ETF Nifty 50 BeES',sector:'Index ETF',type:'ETF',price:273.43,prevClose:272.68,vol:0.8},
+  {sym:'SETFNIF50',name:'SBI ETF Nifty 50',sector:'Index ETF',type:'ETF',price:258.66,prevClose:257.97,vol:0.8},
+  {sym:'NIFTYIETF',name:'ICICI Prudential Nifty 50 ETF',sector:'Index ETF',type:'ETF',price:272.14,prevClose:271.50,vol:0.7},
+  {sym:'HDFCNIFTY',name:'HDFC Nifty 50 ETF',sector:'Index ETF',type:'ETF',price:270.46,prevClose:269.82,vol:0.7},
+  {sym:'GROWWNIFTY',name:'Groww Nifty 50 ETF',sector:'Index ETF',type:'ETF',price:9.72,prevClose:9.69,vol:0.8},
+  {sym:'BSLNIFTY',name:'Aditya Birla Sun Life Nifty 50 ETF',sector:'Index ETF',type:'ETF',price:28.18,prevClose:28.06,vol:0.7},
+  {sym:'NIFTYCASE',name:'Zerodha Nifty 50 ETF',sector:'Index ETF',type:'ETF',price:9.64,prevClose:9.61,vol:0.8},
+  {sym:'AONENIFTY',name:'Angel One Nifty 50 ETF',sector:'Index ETF',type:'ETF',price:9.90,prevClose:9.89,vol:0.7},
+  // GOLD ETFs
+  {sym:'GOLDBEES',name:'Nippon India ETF Gold BeES',sector:'Gold ETF',type:'ETF',price:114.96,prevClose:117.56,vol:0.7},
+  {sym:'GOLDIETF',name:'ICICI Prudential Gold ETF',sector:'Gold ETF',type:'ETF',price:118.55,prevClose:121.59,vol:0.7},
+  {sym:'SETFGOLD',name:'SBI Gold Exchange Traded Scheme',sector:'Gold ETF',type:'ETF',price:118.34,prevClose:121.24,vol:0.7},
+  {sym:'HDFCGOLD',name:'HDFC Gold ETF',sector:'Gold ETF',type:'ETF',price:118.55,prevClose:121.41,vol:0.7},
+  {sym:'GOLD1',name:'Kotak Gold Exchange Traded Fund',sector:'Gold ETF',type:'ETF',price:115.70,prevClose:118.64,vol:0.7},
+  {sym:'TATAGOLD',name:'Tata Gold Exchange Traded Fund',sector:'Gold ETF',type:'ETF',price:13.50,prevClose:13.82,vol:0.7},
+  {sym:'GROWWGOLD',name:'Groww Gold ETF',sector:'Gold ETF',type:'ETF',price:13.73,prevClose:13.90,vol:0.7},
+  {sym:'GOLDCASE',name:'Zerodha Gold ETF',sector:'Gold ETF',type:'ETF',price:21.82,prevClose:22.34,vol:0.7},
+  // SILVER ETFs
+  {sym:'SILVERBEES',name:'Nippon India Silver ETF',sector:'Silver ETF',type:'ETF',price:206.57,prevClose:213.35,vol:0.9},
+  {sym:'HDFCSILVER',name:'HDFC Silver ETF',sector:'Silver ETF',type:'ETF',price:206.44,prevClose:213.21,vol:0.9},
+  {sym:'SILVERIETF',name:'ICICI Prudential Silver ETF',sector:'Silver ETF',type:'ETF',price:216.32,prevClose:222.58,vol:0.9},
+  {sym:'SBISILVER',name:'SBI Silver ETF',sector:'Silver ETF',type:'ETF',price:211.86,prevClose:218.47,vol:0.9},
+  {sym:'SILVER1',name:'Kotak Silver ETF',sector:'Silver ETF',type:'ETF',price:21.07,prevClose:21.60,vol:0.9},
+  {sym:'SILVER',name:'Aditya Birla Sun Life Silver ETF',sector:'Silver ETF',type:'ETF',price:216.36,prevClose:222.62,vol:0.9},
+  {sym:'AXISILVER',name:'Axis Silver ETF',sector:'Silver ETF',type:'ETF',price:215.63,prevClose:221.69,vol:0.9},
+  {sym:'SILVERBETA',name:'UTI Silver ETF',sector:'Silver ETF',type:'ETF',price:208.65,prevClose:215.32,vol:0.9},
+  {sym:'SILVERAG',name:'Mirae Asset Silver ETF',sector:'Silver ETF',type:'ETF',price:210.17,prevClose:217.21,vol:0.9},
+  {sym:'SILVERADD',name:'DSP Silver ETF',sector:'Silver ETF',type:'ETF',price:210.05,prevClose:214.90,vol:0.9},
+  {sym:'MOSILVER',name:'Motilal Oswal Silver ETF',sector:'Silver ETF',type:'ETF',price:215.37,prevClose:220.56,vol:0.9},
+  {sym:'ESILVER',name:'Edelweiss Silver ETF',sector:'Silver ETF',type:'ETF',price:216.52,prevClose:222.31,vol:0.9},
+  {sym:'TATSILV',name:'Tata Silver Exchange Traded Fund',sector:'Silver ETF',type:'ETF',price:21.02,prevClose:21.66,vol:0.9},
+  {sym:'GROWWSLVR',name:'Groww Silver ETF',sector:'Silver ETF',type:'ETF',price:21.19,prevClose:21.84,vol:0.9},
+  {sym:'SILVERCASE',name:'Zerodha Silver ETF',sector:'Silver ETF',type:'ETF',price:21.88,prevClose:22.57,vol:0.9},
+  {sym:'AONESILVER',name:'Angel One Silver ETF',sector:'Silver ETF',type:'ETF',price:8.29,prevClose:8.53,vol:0.9},
+  // OTHER ETFs
+  {sym:'JUNIORBEES',name:'Nippon India Junior BeES (Next 50)',sector:'Index ETF',type:'ETF',price:84.30,prevClose:83.65,vol:0.9},
+  {sym:'BANKBEES',name:'Nippon India Bank BeES',sector:'Sector ETF',type:'ETF',price:524.60,prevClose:528.35,vol:1.0},
+  {sym:'ICICIB22',name:'ICICI Pru Nifty Next 50 ETF',sector:'Index ETF',type:'ETF',price:248.35,prevClose:246.80,vol:0.7},
+  {sym:'HDFCSENSEX',name:'HDFC Sensex ETF',sector:'Index ETF',type:'ETF',price:824.50,prevClose:818.75,vol:0.8},
+  {sym:'MOM100',name:'Motilal Oswal Midcap ETF',sector:'Mid-cap ETF',type:'ETF',price:48.24,prevClose:47.86,vol:1.1},
+  {sym:'ITBEES',name:'Nippon India IT ETF',sector:'Sector ETF',type:'ETF',price:48.62,prevClose:48.10,vol:1.0},
+  {sym:'PHARMABEES',name:'Nippon India Pharma ETF',sector:'Sector ETF',type:'ETF',price:24.85,prevClose:24.62,vol:0.9},
+  // COMMODITIES
+  {sym:'GOLD',name:'Gold (MCX) per gram',sector:'Precious Metal',type:'COMMODITY',price:7248.50,prevClose:7198.25,vol:0.6},
+  {sym:'SILVER',name:'Silver (MCX) per kg',sector:'Precious Metal',type:'COMMODITY',price:87420.00,prevClose:86840.00,vol:0.9},
+  {sym:'CRUDEOIL',name:'Crude Oil (MCX) per barrel',sector:'Energy',type:'COMMODITY',price:6524.75,prevClose:6612.40,vol:1.8},
+  {sym:'NATURALGAS',name:'Natural Gas (MCX) per MMBtu',sector:'Energy',type:'COMMODITY',price:184.25,prevClose:188.60,vol:2.4},
+  {sym:'COPPER',name:'Copper (MCX) per kg',sector:'Base Metal',type:'COMMODITY',price:842.40,prevClose:834.75,vol:1.5},
+  {sym:'ZINC',name:'Zinc (MCX) per kg',sector:'Base Metal',type:'COMMODITY',price:284.75,prevClose:280.40,vol:1.6},
+  {sym:'ALUMINIUM',name:'Aluminium (MCX) per kg',sector:'Base Metal',type:'COMMODITY',price:224.35,prevClose:226.80,vol:1.4},
+  // BONDS/DEBENTURES
+  {sym:'GSEC10Y',name:'Govt. Securities 10-Year Bond',sector:'G-Sec',type:'BOND',price:9848.25,prevClose:9852.40,vol:0.2,yield:7.1},
+  {sym:'GSEC5Y',name:'Govt. Securities 5-Year Bond',sector:'G-Sec',type:'BOND',price:9924.50,prevClose:9918.75,vol:0.15,yield:6.8},
+  {sym:'TATABD',name:'Tata Capital NCD 2027',sector:'Corporate Bond',type:'BOND',price:1024.80,prevClose:1022.35,vol:0.25,yield:8.4},
+  {sym:'HDFCNCD',name:'HDFC Ltd NCD 2026',sector:'Corporate Bond',type:'BOND',price:1018.40,prevClose:1016.80,vol:0.2,yield:8.1},
+  {sym:'SBIBOND',name:'SBI 8.5% Bonds 2028',sector:'PSU Bond',type:'BOND',price:1042.60,prevClose:1040.25,vol:0.18,yield:8.5},
+];
+
+const STARTING_CAPITAL = 50000;
+let currentUser = null;
+let prices = {};
+let priceHistory = {};
+let chartModal_stock = null;
+let stockDetailChartObj = null;
+let portfolioChartObj = null;
+let allocChartObj = null;
+let portfolioHistoryChartObj = null;
+let currentTradeType = 'BUY';
+let currentTradeSym = null;
+let currentFilter = 'ALL';
+let priceInterval = null;
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+function initPrices() {
+  INSTRUMENTS.forEach(inst => {
+    prices[inst.sym] = inst.price;
+    priceHistory[inst.sym] = generateHistory(inst.price, inst.vol);
+  });
+}
+
+function generateHistory(basePrice, vol) {
+  const pts = [];
+  let p = basePrice * 0.92;
+  for (let i = 0; i < 30; i++) {
+    p = p * (1 + (Math.random() - 0.48) * vol / 100);
+    pts.push(parseFloat(p.toFixed(2)));
+  }
+  pts.push(basePrice);
+  return pts;
+}
+
+// ─── PRICE SIMULATION ─────────────────────────────────────────────────────────
+function simulatePrices() {
+  INSTRUMENTS.forEach(inst => {
+    const maxMove = inst.vol / 100;
+    const change = (Math.random() - 0.498) * maxMove;
+    prices[inst.sym] = parseFloat((prices[inst.sym] * (1 + change)).toFixed(2));
+    priceHistory[inst.sym].push(prices[inst.sym]);
+    if (priceHistory[inst.sym].length > 50) priceHistory[inst.sym].shift();
+  });
+  updateTicker();
+  if (currentUser) {
+    updateNavBalance();
+    if (document.getElementById('page-home').classList.contains('active')) updateDashboard();
+    if (document.getElementById('page-explore').classList.contains('active')) renderMarketTable();
+    if (document.getElementById('page-holdings').classList.contains('active')) renderPortfolio();
+    if (document.getElementById('page-leaderboard').classList.contains('active')) renderLeaderboard();
+    if (!document.getElementById('chartModal').classList.contains('hidden') && chartModal_stock) updateChartModal();
+  }
+}
+
+// ─── TICKER ──────────────────────────────────────────────────────────────────
+function updateTicker() {
+  const items = INSTRUMENTS.filter((_, i) => i % 3 === 0).concat(INSTRUMENTS.filter((_, i) => i % 3 !== 0));
+  const selected = INSTRUMENTS.slice(0, 20);
+  let html = '';
+  const doubled = [...selected, ...selected];
+  doubled.forEach(inst => {
+    const p = prices[inst.sym];
+    const base = inst.prevClose;
+    const pct = ((p - base) / base * 100).toFixed(2);
+    const dir = p >= base ? 'up' : 'down';
+    const arr = dir === 'up' ? '▲' : '▼';
+    html += `<div class="ticker-item">
+      <span class="sym">${inst.sym}</span>
+      <span class="price ${dir}">₹${fmt(p)}</span>
+      <span class="chg ${dir}">${arr} ${Math.abs(pct)}%</span>
+    </div>`;
+  });
+  document.getElementById('tickerTrack').innerHTML = html;
+}
+
+// ─── STORAGE ─────────────────────────────────────────────────────────────────
+function getUsers() { return JSON.parse(localStorage.getItem('sw_users') || '{}'); }
+function saveUsers(u) { localStorage.setItem('sw_users', JSON.stringify(u)); }
+function getUserData(roll) {
+  const users = getUsers();
+  return users[roll] || null;
+}
+function saveUserData(roll, data) {
+  const users = getUsers();
+  users[roll] = data;
+  saveUsers(users);
+}
+
+// ─── AUTH ─────────────────────────────────────────────────────────────────────
+function switchAuthTab(tab) {
+  document.getElementById('loginForm').style.display = tab === 'login' ? 'block' : 'none';
+  document.getElementById('registerForm').style.display = tab === 'register' ? 'block' : 'none';
+  document.querySelectorAll('.auth-tab').forEach((el, i) => el.classList.toggle('active', (i === 0) === (tab === 'login')));
+  document.getElementById('authMsg').textContent = '';
+}
+
+function register() {
+  const name = document.getElementById('regName').value.trim();
+  const roll = document.getElementById('regRoll').value.trim().toUpperCase();
+  const pass = document.getElementById('regPass').value;
+  if (!name || !roll || !pass) return showAuthMsg('Please fill all fields', 'red');
+  const users = getUsers();
+  if (users[roll]) return showAuthMsg('Roll number already registered!', 'red');
+  users[roll] = {
+    name, roll, pass,
+    cash: STARTING_CAPITAL,
+    holdings: {},
+    trades: [],
+    portfolioHistory: [STARTING_CAPITAL],
+    joinedAt: new Date().toISOString()
+  };
+  saveUsers(users);
+  showAuthMsg('Account created! Please login.', 'var(--green)');
+  switchAuthTab('login');
+  document.getElementById('loginRoll').value = roll;
+}
+
+function login() {
+  const roll = document.getElementById('loginRoll').value.trim().toUpperCase();
+  const pass = document.getElementById('loginPass').value;
+  const users = getUsers();
+  if (!users[roll]) return showAuthMsg('Roll number not found!', 'red');
+  if (users[roll].pass !== pass) return showAuthMsg('Incorrect password!', 'red');
+  currentUser = roll;
+  sessionStorage.setItem('sw_session', roll);
+  startApp();
+}
+
+function logout() {
+  currentUser = null;
+  sessionStorage.removeItem('sw_session');
+  document.getElementById('authPage').style.display = 'flex';
+  document.getElementById('mainApp').style.display = 'none';
+  document.getElementById('navbar').style.display = 'none';
+}
+
+function showAuthMsg(msg, color) {
+  const el = document.getElementById('authMsg');
+  el.textContent = msg;
+  el.style.color = color;
+}
+
+function startApp() {
+  document.getElementById('authPage').style.display = 'none';
+  document.getElementById('mainApp').style.display = 'block';
+  document.getElementById('navbar').style.display = 'flex';
+  const u = getUserData(currentUser);
+  document.getElementById('userChip').textContent = `👤 ${u.name.split(' ')[0]}`;
+  showPage('home');
+  updateDashboard();
+  renderMarketTable();
+  renderLeaderboard();
+  setTimeout(() => generateNewsEvent(), 4000);
+}
+
+// ─── NAV ──────────────────────────────────────────────────────────────────────
+function showPage(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById(`page-${page}`).classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  const btns = document.querySelectorAll('.nav-btn');
+  const pages = ['home','explore','holdings','watchlist','news','sip','orders','leaderboard','learn'];
+  const idx = pages.indexOf(page);
+  if (btns[idx]) btns[idx].classList.add('active');
+  if (page === 'holdings') { renderPortfolio(); }
+  if (page === 'orders') renderHistory();
+  if (page === 'leaderboard') renderLeaderboard();
+  if (page === 'home') updateDashboard();
+}
+
+// ─── DASHBOARD ───────────────────────────────────────────────────────────────
+function updateDashboard() {
+  const u = getUserData(currentUser);
+  const invested = Object.entries(u.holdings).reduce((s, [sym, h]) => s + h.avgPrice * h.qty, 0);
+  const currentVal = Object.entries(u.holdings).reduce((s, [sym, h]) => s + prices[sym] * h.qty, 0);
+  const total = u.cash + currentVal;
+  const ret = total - STARTING_CAPITAL;
+  const retPct = (ret / STARTING_CAPITAL * 100).toFixed(2);
+
+  document.getElementById('totalValue').textContent = `₹${fmt(total)}`;
+  document.getElementById('cashVal').textContent = `₹${fmt(u.cash)}`;
+  const retEl = document.getElementById('totalReturn');
+  retEl.textContent = `${ret >= 0 ? '+' : ''}₹${fmt(Math.abs(ret))} (${retPct}%)`;
+  retEl.style.color = ret >= 0 ? 'var(--green)' : 'var(--red)';
+  document.getElementById('holdingCount').textContent = Object.keys(u.holdings).length;
+
+  const todayPnl = currentVal - invested;
+  const todayEl = document.getElementById('todayPnl');
+  todayEl.textContent = `${todayPnl >= 0 ? '+' : ''}₹${fmt(Math.abs(todayPnl))}`;
+  todayEl.style.color = todayPnl >= 0 ? 'var(--green)' : 'var(--red)';
+  document.getElementById('todayPct').textContent = invested > 0 ? `${(todayPnl/invested*100).toFixed(2)}%` : '0%';
+
+  updateNavBalance();
+  renderPortfolioChart(u);
+  renderAllocChart(u);
+  renderTopMovers();
+
+  // Save portfolio history
+  u.portfolioHistory = u.portfolioHistory || [STARTING_CAPITAL];
+  u.portfolioHistory.push(parseFloat(total.toFixed(2)));
+  if (u.portfolioHistory.length > 50) u.portfolioHistory.shift();
+  saveUserData(currentUser, u);
+}
+
+function updateNavBalance() {
+  const u = getUserData(currentUser);
+  document.getElementById('navBalance').textContent = `₹${fmt(u.cash)}`;
+}
+
+function renderPortfolioChart(u) {
+  const hist = u.portfolioHistory || [STARTING_CAPITAL];
+  const ctx = document.getElementById('portfolioChart').getContext('2d');
+  if (portfolioChartObj) portfolioChartObj.destroy();
+  const color = hist[hist.length-1] >= hist[0] ? '#00d09c' : '#ff4d6d';
+  portfolioChartObj = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: hist.map((_, i) => i),
+      datasets: [{
+        data: hist, borderColor: color, borderWidth: 2,
+        fill: true, backgroundColor: `${color}18`,
+        tension: 0.4, pointRadius: 0
+      }]
+    },
+    options: { plugins:{legend:{display:false}}, scales:{x:{display:false},y:{display:false}}, animation:{duration:0} }
+  });
+}
+
+function renderAllocChart(u) {
+  const ctx = document.getElementById('allocChart').getContext('2d');
+  if (allocChartObj) allocChartObj.destroy();
+  const holdings = Object.entries(u.holdings);
+  if (holdings.length === 0) {
+    allocChartObj = new Chart(ctx, { type:'doughnut', data:{ labels:['Cash'], datasets:[{data:[1],backgroundColor:['#1e2a3d'],borderColor:['#1f2e45'],borderWidth:1}] }, options:{plugins:{legend:{display:false}},animation:{duration:0}} });
+    return;
+  }
+  const labels = ['Cash', ...holdings.map(([s]) => s)];
+  const data = [u.cash, ...holdings.map(([s, h]) => prices[s] * h.qty)];
+  const colors = ['#3b82f6','#00d09c','#f59e0b','#8b5cf6','#ff4d6d','#06b6d4','#10b981','#f97316'];
+  allocChartObj = new Chart(ctx, {
+    type: 'doughnut',
+    data: { labels, datasets:[{ data, backgroundColor: colors.slice(0, labels.length), borderColor:'#141d2e', borderWidth:2 }] },
+    options: { plugins:{legend:{position:'bottom',labels:{color:'#8fa3bf',font:{size:10},boxWidth:10}}}, cutout:'65%', animation:{duration:0} }
+  });
+}
+
+function renderTopMovers() {
+  const movers = INSTRUMENTS.filter(i => i.type === 'EQUITY').map(i => {
+    const pct = (prices[i.sym] - i.prevClose) / i.prevClose * 100;
+    return { ...i, pct };
+  }).sort((a, b) => Math.abs(b.pct) - Math.abs(a.pct)).slice(0, 6);
+
+  document.getElementById('topMovers').innerHTML = movers.map(m => `
+    <div style="background:var(--bg);border-radius:12px;padding:14px;cursor:pointer" onclick="openChart('${m.sym}')">
+      <div style="font-weight:700;font-size:13px">${m.sym}</div>
+      <div style="font-size:11px;color:var(--text2);margin:2px 0">${m.sector}</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-weight:700;margin-top:6px">₹${fmt(prices[m.sym])}</div>
+      <div class="chg-badge ${m.pct >= 0 ? 'up' : 'down'}" style="margin-top:4px">${m.pct >= 0 ? '▲' : '▼'} ${Math.abs(m.pct).toFixed(2)}%</div>
+    </div>
+  `).join('');
+}
+
+// ─── MARKET ───────────────────────────────────────────────────────────────────
+function filterMarket(type, el) {
+  currentFilter = type;
+  document.querySelectorAll('.filter-tab').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  renderMarketTable();
+}
+
+function renderMarketTable() {
+  const search = document.getElementById('searchInput')?.value.toLowerCase() || '';
+  let list = INSTRUMENTS.filter(i => {
+    const matchFilter = currentFilter === 'ALL' || i.type === currentFilter;
+    const matchSearch = !search || i.sym.toLowerCase().includes(search) || i.name.toLowerCase().includes(search) || i.sector.toLowerCase().includes(search);
+    return matchFilter && matchSearch;
+  });
+
+  const typeTag = {ETF:'tag-etf',COMMODITY:'tag-comm',BOND:'tag-bond'};
+
+  document.getElementById('marketTable').innerHTML = `<table>
+    <thead><tr>
+      <th>Instrument</th><th>LTP</th><th>Chg from Prev Close</th><th>Prev Close</th><th>Trend</th><th>Action</th>
+    </tr></thead>
+    <tbody>
+    ${list.map(inst => {
+      const p = prices[inst.sym];
+      const pct = ((p - inst.prevClose) / inst.prevClose * 100).toFixed(2);
+      const chgAbs = (p - inst.prevClose).toFixed(2);
+      const dir = p >= inst.prevClose ? 'up' : 'down';
+      const tag = inst.type !== 'EQUITY' ? `<span class="tag ${typeTag[inst.type]}">${inst.type}</span>` : '';
+      const yieldBadge = inst.yield ? `<span style="font-size:11px;color:var(--purple);margin-left:6px">${inst.yield}% p.a.</span>` : '';
+      return `<tr onclick="openChart('${inst.sym}')">
+        <td><div class="stock-name">${inst.sym}${tag}</div><div class="stock-sector">${inst.name}</div></td>
+        <td class="price-cell">₹${fmt(p)}${yieldBadge}</td>
+        <td>
+          <div style="display:flex;flex-direction:column;gap:2px">
+            <span class="chg-badge ${dir}">${dir === 'up' ? '▲' : '▼'} ${Math.abs(pct)}%</span>
+            <span style="font-size:11px;color:${dir==='up'?'var(--green)':'var(--red)'};font-family:'JetBrains Mono',monospace">${dir==='up'?'+':''}₹${chgAbs}</span>
+          </div>
+        </td>
+        <td style="font-family:'JetBrains Mono',monospace;color:var(--text2);font-size:13px">₹${fmt(inst.prevClose)}</td>
+        <td><canvas class="mini-chart" id="mini-${inst.sym}"></canvas></td>
+        <td style="display:flex;gap:6px">
+          <button class="buy-btn-sm" onclick="event.stopPropagation();openTrade('${inst.sym}','BUY')">Buy</button>
+          <button class="sell-btn-sm" onclick="event.stopPropagation();openTrade('${inst.sym}','SELL')">Sell</button>
+        </td>
+      </tr>`;
+    }).join('')}
+    </tbody>
+  </table>`;
+
+  // Draw mini charts
+  list.forEach(inst => {
+    const canvas = document.getElementById(`mini-${inst.sym}`);
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const hist = priceHistory[inst.sym] || [prices[inst.sym]];
+    const p = prices[inst.sym];
+    const dir = p >= inst.price ? '#00d09c' : '#ff4d6d';
+    new Chart(ctx, {
+      type: 'line',
+      data: { labels: hist.map((_,i)=>i), datasets:[{data:hist,borderColor:dir,borderWidth:1.5,fill:false,tension:0.4,pointRadius:0}] },
+      options: { plugins:{legend:{display:false}}, scales:{x:{display:false},y:{display:false}}, animation:{duration:0} }
+    });
+  });
+}
+
+// ─── CHART MODAL ──────────────────────────────────────────────────────────────
+function openChart(sym) {
+  chartModal_stock = sym;
+  const inst = INSTRUMENTS.find(i => i.sym === sym);
+  const p = prices[sym];
+  const pct = ((p - inst.prevClose) / inst.prevClose * 100).toFixed(2);
+  const dir = p >= inst.prevClose;
+  document.getElementById('chartModalStock').textContent = sym;
+  document.getElementById('chartModalFull').textContent = inst.name;
+  document.getElementById('chartModalPrice').textContent = `₹${fmt(p)}`;
+  document.getElementById('chartModalPrice').style.color = dir ? 'var(--green)' : 'var(--red)';
+  document.getElementById('chartModal').classList.remove('hidden');
+  renderStockDetailChart(sym);
+}
+
+function renderStockDetailChart(sym) {
+  const hist = priceHistory[sym] || [prices[sym]];
+  const inst = INSTRUMENTS.find(i => i.sym === sym);
+  const dir = prices[sym] >= inst.prevClose ? '#00d09c' : '#ff4d6d';
+  const ctx = document.getElementById('stockDetailChart').getContext('2d');
+  if (stockDetailChartObj) stockDetailChartObj.destroy();
+  stockDetailChartObj = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: hist.map((_, i) => i),
+      datasets: [{
+        data: hist, borderColor: dir, borderWidth: 2,
+        fill: true, backgroundColor: `${dir}15`,
+        tension: 0.4, pointRadius: 0
+      }]
+    },
+    options: {
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { display: false },
+        y: { display: true, grid: { color: '#1f2e45' }, ticks: { color: '#8fa3bf', font: { size: 10 }, callback: v => '₹' + fmt(v) } }
+      },
+      animation: { duration: 300 }
+    }
+  });
+}
+
+function updateChartModal() {
+  if (!chartModal_stock) return;
+  const sym = chartModal_stock;
+  const inst = INSTRUMENTS.find(i => i.sym === sym);
+  const p = prices[sym];
+  document.getElementById('chartModalPrice').textContent = `₹${fmt(p)}`;
+  document.getElementById('chartModalPrice').style.color = p >= inst.prevClose ? 'var(--green)' : 'var(--red)';
+  renderStockDetailChart(sym);
+}
+
+function closeChartModal() {
+  document.getElementById('chartModal').classList.add('hidden');
+  chartModal_stock = null;
+}
+
+function openTradeFromChart(type) {
+  closeChartModal();
+  if (chartModal_stock) openTrade(chartModal_stock, type);
+  else if (currentTradeSym) openTrade(currentTradeSym, type);
+}
+
+// ─── TRADE MODAL ──────────────────────────────────────────────────────────────
+function openTrade(sym, type) {
+  currentTradeSym = sym;
+  currentTradeType = type;
+  const inst = INSTRUMENTS.find(i => i.sym === sym);
+  const u = getUserData(currentUser);
+  document.getElementById('modalStock').textContent = sym;
+  document.getElementById('modalStockFull').textContent = inst.name;
+  document.getElementById('modalPrice').textContent = `₹${fmt(prices[sym])}`;
+  document.getElementById('modalBalance').textContent = `₹${fmt(u.cash)}`;
+  const owned = u.holdings[sym]?.qty || 0;
+  document.getElementById('sharesOwnedRow').style.display = owned > 0 ? 'flex' : 'none';
+  document.getElementById('modalOwned').textContent = owned;
+  document.getElementById('qtyInput').value = 1;
+  setTradeType(type);
+  updateTotal();
+  document.getElementById('tradeModal').classList.remove('hidden');
+}
+
+function setTradeType(type) {
+  currentTradeType = type;
+  const buyTab = document.getElementById('tabBuy');
+  const sellTab = document.getElementById('tabSell');
+  const btn = document.getElementById('executeBtn');
+  buyTab.className = `trade-tab ${type === 'BUY' ? 'buy-active' : ''}`;
+  sellTab.className = `trade-tab ${type === 'SELL' ? 'sell-active' : ''}`;
+  btn.className = `execute-btn ${type === 'BUY' ? 'buy' : 'sell'}`;
+  btn.textContent = type === 'BUY' ? 'Buy' : 'Sell';
+  updateTotal();
+}
+
+function changeQty(delta) {
+  const input = document.getElementById('qtyInput');
+  const val = Math.max(1, parseInt(input.value || 1) + delta);
+  input.value = val;
+  updateTotal();
+}
+
+function updateTotal() {
+  const qty = parseInt(document.getElementById('qtyInput').value || 1);
+  const total = qty * prices[currentTradeSym];
+  document.getElementById('tradeTotal').textContent = `₹${fmt(total)}`;
+  document.getElementById('tradeTotal').style.color = currentTradeType === 'BUY' ? 'var(--green)' : 'var(--red)';
+}
+
+function closeModal() { document.getElementById('tradeModal').classList.add('hidden'); }
+
+function executeTrade() {
+  const qty = parseInt(document.getElementById('qtyInput').value || 1);
+  if (qty < 1) return showToast('Invalid quantity', 'error');
+  const price = prices[currentTradeSym];
+  const total = qty * price;
+  const u = getUserData(currentUser);
+  if (currentTradeType === 'BUY') {
+    if (total > u.cash) return showToast('Insufficient balance!', 'error');
+    u.cash -= total;
+    if (!u.holdings[currentTradeSym]) u.holdings[currentTradeSym] = { qty: 0, avgPrice: 0 };
+    const h = u.holdings[currentTradeSym];
+    h.avgPrice = ((h.avgPrice * h.qty) + (price * qty)) / (h.qty + qty);
+    h.qty += qty;
+  } else {
+    const owned = u.holdings[currentTradeSym]?.qty || 0;
+    if (qty > owned) return showToast(`You only own ${owned} shares!`, 'error');
+    u.cash += total;
+    u.holdings[currentTradeSym].qty -= qty;
+    if (u.holdings[currentTradeSym].qty === 0) delete u.holdings[currentTradeSym];
+  }
+  u.trades.unshift({ sym: currentTradeSym, type: currentTradeType, qty, price, total, time: new Date().toISOString() });
+  saveUserData(currentUser, u);
+  closeModal();
+  showToast(`${currentTradeType === 'BUY' ? '🟢 Bought' : '🔴 Sold'} ${qty} × ${currentTradeSym} @ ₹${fmt(price)}`, 'success');
+  updateDashboard();
+}
+
+// ─── HOLDINGS / PORTFOLIO GROWTH ──────────────────────────────────────────────
+let pgChartObj = null;
+let pgFilter = 'ALL';
+
+function setPgFilter(filter, btn) {
+  pgFilter = filter;
+  document.querySelectorAll('.pg-filter').forEach(b => b.classList.remove('active-pg'));
+  btn.classList.add('active-pg');
+  renderPortfolioGrowthChart();
+}
+
+function renderPortfolio() {
+  const u = getUserData(currentUser);
+  const holdings = Object.entries(u.holdings);
+  const invested = holdings.reduce((s, [sym, h]) => s + h.avgPrice * h.qty, 0);
+  const current = holdings.reduce((s, [sym, h]) => s + prices[sym] * h.qty, 0);
+  const totalVal = u.cash + current;
+  const ret = totalVal - STARTING_CAPITAL;
+  const retPct = (ret / STARTING_CAPITAL * 100).toFixed(2);
+  const holdingRet = current - invested;
+  const holdingRetPct = invested > 0 ? (holdingRet / invested * 100).toFixed(2) : '0.00';
+  const dir = ret >= 0;
+  const holdingDir = holdingRet >= 0;
+
+  // Header
+  document.getElementById('pgCurrentVal').textContent = `₹${fmt(totalVal)}`;
+  const pnlBadge = document.getElementById('pgPnlBadge');
+  pnlBadge.textContent = `${dir?'+':''}₹${fmt(Math.abs(ret))}`;
+  pnlBadge.style.background = dir ? 'rgba(0,208,156,0.15)' : 'rgba(255,77,109,0.15)';
+  pnlBadge.style.color = dir ? 'var(--green)' : 'var(--red)';
+  const pctBadge = document.getElementById('pgPctBadge');
+  pctBadge.textContent = `${dir?'+':''}${retPct}%`;
+  pctBadge.style.background = dir ? 'rgba(0,208,156,0.15)' : 'rgba(255,77,109,0.15)';
+  pctBadge.style.color = dir ? 'var(--green)' : 'var(--red)';
+
+  // Stats
+  document.getElementById('pInvested').textContent = `₹${fmt(invested)}`;
+  const retEl = document.getElementById('pReturns');
+  retEl.textContent = `${holdingDir?'+':''}₹${fmt(Math.abs(holdingRet))}`;
+  retEl.style.color = holdingDir ? 'var(--green)' : 'var(--red)';
+  const retPctEl = document.getElementById('pReturnsPct');
+  retPctEl.textContent = `${holdingDir?'+':''}${holdingRetPct}%`;
+  retPctEl.style.color = holdingDir ? 'var(--green)' : 'var(--red)';
+
+  // Best / Worst performer
+  if (holdings.length > 0) {
+    const performers = holdings.map(([sym, h]) => {
+      const pnlPct = ((prices[sym] - h.avgPrice) / h.avgPrice * 100);
+      return { sym, pnlPct, pnl: (prices[sym] - h.avgPrice) * h.qty };
+    }).sort((a, b) => b.pnlPct - a.pnlPct);
+    const best = performers[0];
+    const worst = performers[performers.length - 1];
+    document.getElementById('pgBest').innerHTML = `
+      <div style="font-weight:700;font-size:14px">${best.sym}</div>
+      <div style="color:var(--green);font-weight:700;font-size:16px;font-family:'JetBrains Mono',monospace">+${best.pnlPct.toFixed(2)}%</div>
+      <div style="font-size:12px;color:var(--text2)">+₹${fmt(Math.abs(best.pnl))}</div>`;
+    document.getElementById('pgWorst').innerHTML = `
+      <div style="font-weight:700;font-size:14px">${worst.sym}</div>
+      <div style="color:${worst.pnlPct>=0?'var(--green)':'var(--red)'};font-weight:700;font-size:16px;font-family:'JetBrains Mono',monospace">${worst.pnlPct>=0?'+':''}${worst.pnlPct.toFixed(2)}%</div>
+      <div style="font-size:12px;color:var(--text2)">${worst.pnl>=0?'+':''}₹${fmt(Math.abs(worst.pnl))}</div>`;
+  } else {
+    document.getElementById('pgBest').innerHTML = '<div style="color:var(--text3);font-size:13px">No holdings yet</div>';
+    document.getElementById('pgWorst').innerHTML = '<div style="color:var(--text3);font-size:13px">No holdings yet</div>';
+  }
+
+  // Chart
+  renderPortfolioGrowthChart();
+
+  // Risk Meter
+  renderRiskMeter(u);
+
+  // Holdings table
+  if (holdings.length === 0) {
+    document.getElementById('holdingsTable').innerHTML = `<div class="empty-state"><div class="icon">📊</div><p>No holdings yet. Go to Explore to start trading!</p></div>`;
+    return;
+  }
+
+  document.getElementById('holdingsTable').innerHTML = `
+    <div style="font-size:13px;color:var(--text2);font-weight:600;padding:16px 20px 8px;background:var(--card);border:1px solid var(--border);border-radius:16px 16px 0 0;border-bottom:none">YOUR STOCKS</div>
+    <div class="holdings-table" style="border-radius:0 0 16px 16px"><table>
+    <thead><tr><th>Instrument</th><th>Qty</th><th>Avg. Cost</th><th>LTP</th><th>P&L</th><th>Current Value</th><th></th></tr></thead>
+    <tbody>
+    ${holdings.map(([sym, h]) => {
+      const cur = prices[sym];
+      const pnl = (cur - h.avgPrice) * h.qty;
+      const pnlPct = ((cur - h.avgPrice) / h.avgPrice * 100).toFixed(2);
+      const val = cur * h.qty;
+      const dir = pnl >= 0;
+      const inst = INSTRUMENTS.find(i => i.sym === sym);
+      return `<tr>
+        <td>
+          <div class="stock-name">${sym}</div>
+          <div class="stock-sector">${inst?.name||''}</div>
+        </td>
+        <td style="font-family:'JetBrains Mono',monospace;font-weight:600">${typeof h.qty === 'number' ? (h.qty % 1 === 0 ? h.qty : h.qty.toFixed(4)) : h.qty}</td>
+        <td style="font-family:'JetBrains Mono',monospace">₹${fmt(h.avgPrice)}</td>
+        <td style="font-family:'JetBrains Mono',monospace;color:${cur >= (inst?.prevClose||cur)?'var(--green)':'var(--red)'}">₹${fmt(cur)}</td>
+        <td>
+          <div style="color:${dir?'var(--green)':'var(--red)'};font-weight:700;font-family:'JetBrains Mono',monospace">${dir?'+':''}₹${fmt(Math.abs(pnl))}</div>
+          <div style="font-size:11px;color:${dir?'var(--green)':'var(--red)'}">${dir?'▲':'▼'}${Math.abs(pnlPct)}%</div>
+        </td>
+        <td style="font-family:'JetBrains Mono',monospace;font-weight:700">₹${fmt(val)}</td>
+        <td><button class="sell-btn-sm" onclick="openTrade('${sym}','SELL')">Sell</button></td>
+      </tr>`;
+    }).join('')}
+    </tbody>
+  </table></div>`;
+}
+
+function renderPortfolioGrowthChart() {
+  const u = getUserData(currentUser);
+  let hist = u.portfolioHistory || [STARTING_CAPITAL];
+  // Filter based on selected period
+  if (pgFilter === '1D') hist = hist.slice(-20);
+  else if (pgFilter === '1W') hist = hist.slice(-80);
+  else if (pgFilter === '1M') hist = hist.slice(-200);
+
+  const ctx = document.getElementById('pgChart').getContext('2d');
+  if (pgChartObj) pgChartObj.destroy();
+  const isUp = hist[hist.length-1] >= hist[0];
+  const color = isUp ? '#00d09c' : '#ff4d6d';
+  const minVal = Math.min(...hist);
+  const maxVal = Math.max(...hist);
+
+  pgChartObj = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: hist.map((_, i) => i),
+      datasets: [{
+        data: hist,
+        borderColor: color,
+        borderWidth: 2.5,
+        fill: true,
+        backgroundColor: (ctx) => {
+          const gradient = ctx.chart.ctx.createLinearGradient(0, 0, 0, 200);
+          gradient.addColorStop(0, `${color}40`);
+          gradient.addColorStop(1, `${color}02`);
+          return gradient;
+        },
+        tension: 0.4,
+        pointRadius: 0,
+        pointHoverRadius: 5,
+        pointHoverBackgroundColor: color,
+      }]
+    },
+    options: {
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => `₹${fmt(ctx.raw)}`,
+            title: () => 'Portfolio Value'
+          },
+          backgroundColor: '#1a2235',
+          borderColor: '#1f2e45',
+          borderWidth: 1,
+          titleColor: '#8fa3bf',
+          bodyColor: color,
+          bodyFont: { family: 'JetBrains Mono', size: 13, weight: 'bold' },
+        }
+      },
+      scales: {
+        x: { display: false },
+        y: {
+          display: true,
+          grid: { color: '#1f2e4530' },
+          ticks: { color: '#8fa3bf', font: { size: 10 }, callback: v => '₹' + fmt(v) },
+          min: minVal * 0.998,
+          max: maxVal * 1.002
+        }
+      },
+      interaction: { intersect: false, mode: 'index' },
+      animation: { duration: 400 }
+    }
+  });
+}
+
+function renderPortfolioHistoryChart() { renderPortfolioGrowthChart(); }
+
+// ─── RISK METER ───────────────────────────────────────────────────────────────
+const RISK_SCORES = {
+  // By type
+  BOND: 5, ETF: 25,
+  // By volatility (overrides type for equities)
+  EQUITY_LOW: 35, EQUITY_MED: 55, EQUITY_HIGH: 75, COMMODITY: 80,
+};
+const HIGH_VOL_STOCKS = ['TATASTEEL','JSWSTEEL','BAJFINANCE','INDUSINDBK','TATAMOTORS','CRUDEOIL','NATURALGAS','COPPER','ZINC','ALUMINIUM','SILVERCASE','SILVERBEES'];
+const LOW_VOL_STOCKS  = ['HINDUNILVR','NESTLEIND','ITC','BRITANNIA','POWERGRID','NTPC','COALINDIA'];
+
+function calcRiskScore(u) {
+  const holdings = Object.entries(u.holdings || {});
+  if (!holdings.length) return { score: 0, breakdown: [], tip: 'Start trading to see your risk profile!' };
+
+  const totalVal = holdings.reduce((s, [sym, h]) => s + prices[sym] * h.qty, 0);
+  const cash = u.cash;
+  const grandTotal = totalVal + cash;
+  const cashRatio = cash / grandTotal;
+
+  // Per-holding risk scores weighted by value
+  let weightedRisk = 0;
+  const breakdown = [];
+  const sectorExposure = {};
+
+  holdings.forEach(([sym, h]) => {
+    const inst = INSTRUMENTS.find(i => i.sym === sym);
+    const val = prices[sym] * h.qty;
+    const weight = val / totalVal;
+    let score;
+    if (!inst) score = 50;
+    else if (inst.type === 'BOND') score = RISK_SCORES.BOND;
+    else if (inst.type === 'ETF') score = RISK_SCORES.ETF;
+    else if (inst.type === 'COMMODITY') score = RISK_SCORES.COMMODITY;
+    else if (HIGH_VOL_STOCKS.includes(sym)) score = RISK_SCORES.EQUITY_HIGH;
+    else if (LOW_VOL_STOCKS.includes(sym)) score = RISK_SCORES.EQUITY_LOW;
+    else score = RISK_SCORES.EQUITY_MED;
+    weightedRisk += score * weight;
+    const sector = inst?.sector || 'Other';
+    sectorExposure[sector] = (sectorExposure[sector] || 0) + val;
+    breakdown.push({ sym, score, weight: (weight * 100).toFixed(1), val });
+  });
+
+  // Cash reduces risk
+  weightedRisk = weightedRisk * (1 - cashRatio * 0.4);
+
+  // Concentration penalty — if top holding > 50% of portfolio
+  const topHolding = Math.max(...holdings.map(([s,h]) => prices[s]*h.qty)) / totalVal;
+  if (topHolding > 0.5) weightedRisk = Math.min(100, weightedRisk * 1.2);
+
+  // Diversification bonus — more than 5 stocks
+  if (holdings.length >= 5) weightedRisk = Math.max(0, weightedRisk * 0.88);
+
+  const score = Math.round(Math.min(100, Math.max(0, weightedRisk)));
+
+  // Top sectors
+  const topSectors = Object.entries(sectorExposure).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([s])=>s);
+
+  // Tips
+  let tip = '';
+  if (score <= 25) tip = `🟢 Your portfolio is <strong>Conservative</strong>. Heavy in bonds and ETFs — great for stable, long-term growth. Consider adding a few growth stocks for better returns.`;
+  else if (score <= 45) tip = `🟡 Your portfolio is <strong>Balanced</strong>. Good mix of stability and growth! You're spread across ${holdings.length} instruments. Keep diversifying across sectors.`;
+  else if (score <= 70) tip = `🟠 Your portfolio is <strong>Aggressive</strong>. High equity exposure with top sectors: ${topSectors.join(', ')}. Consider adding bonds or ETFs to reduce volatility.`;
+  else tip = `🔴 Your portfolio is <strong>Very Aggressive</strong>! Heavy in volatile instruments. ${topHolding > 0.5 ? 'You\'re overconcentrated in one stock — a single bad news can hurt hard. ' : ''}Add ETFs or bonds to balance risk.`;
+
+  return { score, breakdown: breakdown.slice(0,4), tip, topSectors };
+}
+
+function renderRiskMeter(u) {
+  const { score, breakdown, tip } = calcRiskScore(u);
+  if (!score && score !== 0) return;
+
+  // Needle rotation: -90deg = score 0 (left), +90deg = score 100 (right)
+  const rotation = -90 + (score / 100) * 180;
+  document.getElementById('riskNeedle').style.transform = `rotate(${rotation}deg)`;
+  document.getElementById('riskScoreText').textContent = score;
+
+  // Label + color
+  let label, labelBg, labelColor, activeArc;
+  if (score <= 25)      { label='Conservative'; labelBg='rgba(0,208,156,0.15)';    labelColor='var(--green)'; activeArc=1; }
+  else if (score <= 45) { label='Balanced';     labelBg='rgba(163,230,53,0.15)';   labelColor='#a3e635';      activeArc=2; }
+  else if (score <= 70) { label='Aggressive';   labelBg='rgba(245,158,11,0.15)';   labelColor='var(--gold)';  activeArc=3; }
+  else                  { label='Very Aggressive'; labelBg='rgba(255,77,109,0.15)';labelColor='var(--red)';   activeArc=4; }
+
+  const lbl = document.getElementById('riskLabel');
+  lbl.textContent = label;
+  lbl.style.background = labelBg;
+  lbl.style.color = labelColor;
+
+  // Highlight active arc
+  [1,2,3,4].forEach(i => {
+    const arc = document.getElementById(`riskArc${i}`);
+    arc.style.opacity = i === activeArc ? '1' : '0.2';
+  });
+
+  // Breakdown bars
+  const colors = { BOND:'var(--purple)', ETF:'var(--blue)', COMMODITY:'var(--gold)', EQUITY:'var(--green)' };
+  document.getElementById('riskBreakdown').innerHTML = breakdown.map(b => {
+    const inst = INSTRUMENTS.find(i => i.sym === b.sym);
+    const col = colors[inst?.type] || 'var(--green)';
+    return `<div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+        <span style="font-size:12px;font-weight:600">${b.sym}</span>
+        <span style="font-size:11px;color:var(--text2)">${b.weight}% of portfolio · Risk ${b.score}/100</span>
+      </div>
+      <div style="height:5px;background:var(--bg3);border-radius:4px;overflow:hidden">
+        <div style="height:100%;width:${b.score}%;background:${col};border-radius:4px;transition:width 0.8s"></div>
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('riskTip').innerHTML = `💡 ${tip}`;
+}
+
+// ─── HISTORY ──────────────────────────────────────────────────────────────────
+function renderHistory() {
+  const u = getUserData(currentUser);
+  if (!u.trades.length) {
+    document.getElementById('historyList').innerHTML = `<div class="empty-state"><div class="icon">📋</div><p>No orders yet. Start trading!</p></div>`;
+    return;
+  }
+  document.getElementById('historyList').innerHTML = u.trades.map(t => {
+    const d = new Date(t.time);
+    const timeStr = d.toLocaleString('en-IN', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
+    return `<div class="history-item">
+      <div>
+        <span class="history-type ${t.type}">${t.type}</span>
+        <strong>${t.sym}</strong>
+        <span style="color:var(--text2);font-size:12px;margin-left:8px">${t.qty} shares @ ₹${fmt(t.price)}</span>
+      </div>
+      <div style="text-align:right">
+        <div style="font-family:'JetBrains Mono',monospace;font-weight:700;color:${t.type==='BUY'?'var(--red)':'var(--green)'}">
+          ${t.type==='BUY'?'-':'+'}₹${fmt(t.total)}
+        </div>
+        <div style="font-size:11px;color:var(--text2)">${timeStr}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ─── LEADERBOARD ─────────────────────────────────────────────────────────────
+function renderLeaderboard() {
+  const users = getUsers();
+  const ranked = Object.values(users).map(u => {
+    const holdingsVal = Object.entries(u.holdings||{}).reduce((s,[sym,h])=>s+prices[sym]*h.qty, 0);
+    const total = (u.cash||0) + holdingsVal;
+    const ret = total - STARTING_CAPITAL;
+    const retPct = (ret / STARTING_CAPITAL * 100).toFixed(2);
+    return { ...u, total, ret, retPct };
+  }).sort((a, b) => b.total - a.total);
+
+  if (ranked.length === 0) {
+    document.getElementById('lbTable').innerHTML = `<div class="empty-state"><div class="icon">🏆</div><p>No students registered yet!</p></div>`;
+    return;
+  }
+
+  document.getElementById('lbTable').innerHTML = `<table>
+    <thead><tr><th>Rank</th><th>Student</th><th>Total Value</th><th>Returns</th><th>Trades</th></tr></thead>
+    <tbody>
+    ${ranked.map((u, i) => {
+      const rank = i + 1;
+      const rankClass = rank <= 3 ? `rank-${rank}` : 'rank-other';
+      const isYou = u.roll === currentUser;
+      return `<tr class="${isYou ? 'lb-you' : ''}">
+        <td><div class="rank-badge ${rankClass}">${rank <= 3 ? ['🥇','🥈','🥉'][rank-1] : rank}</div></td>
+        <td>
+          <div style="font-weight:700">${u.name} ${isYou ? '<span style="background:var(--blue);color:#fff;padding:2px 6px;border-radius:4px;font-size:10px">YOU</span>' : ''}</div>
+          <div style="font-size:11px;color:var(--text2)">${u.roll}</div>
+        </td>
+        <td style="font-family:'JetBrains Mono',monospace;font-weight:700">₹${fmt(u.total)}</td>
+        <td>
+          <div style="color:${u.ret>=0?'var(--green)':'var(--red)'};font-weight:700">${u.ret>=0?'+':''}₹${fmt(Math.abs(u.ret))}</div>
+          <div style="font-size:11px;color:${u.ret>=0?'var(--green)':'var(--red)'}">${u.ret>=0?'▲':'▼'}${Math.abs(u.retPct)}%</div>
+        </td>
+        <td style="color:var(--text2)">${(u.trades||[]).length}</td>
+      </tr>`;
+    }).join('')}
+    </tbody>
+  </table>`;
+}
+
+// ─── UTILS ────────────────────────────────────────────────────────────────────
+function fmt(n) {
+  if (n >= 100000) return (n/100000).toFixed(2) + 'L';
+  if (n >= 1000) return n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return parseFloat(n).toFixed(2);
+}
+
+function showToast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast ${type} show`;
+  setTimeout(() => t.className = 'toast', 3000);
+}
+
+// ─── MARKET HOURS ─────────────────────────────────────────────────────────────
+function getMarketStatus() {
+  const now = new Date();
+  const h = now.getHours(), m = now.getMinutes();
+  const mins = h * 60 + m;
+  const day = now.getDay();
+  if (day === 0 || day === 6) return 'closed';
+  if (mins >= 9*60 && mins < 9*60+15) return 'pre';
+  if (mins >= 9*60+15 && mins < 15*60+30) return 'open';
+  return 'closed';
+}
+
+function isMarketOpen() { return getMarketStatus() === 'open'; }
+
+function updateMarketStatusChip() {
+  const status = getMarketStatus();
+  const chip = document.getElementById('marketStatusChip');
+  if (!chip) return;
+  if (status === 'open') {
+    chip.textContent = '🟢 Market Open';
+    chip.className = 'market-open';
+    chip.style.cssText = 'padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700;background:rgba(0,208,156,0.15);color:var(--green)';
+  } else if (status === 'pre') {
+    chip.textContent = '🔵 Pre-Market';
+    chip.style.cssText = 'padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700;background:rgba(59,130,246,0.15);color:var(--blue)';
+  } else {
+    chip.textContent = '🔴 Market Closed';
+    chip.style.cssText = 'padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700;background:rgba(245,158,11,0.15);color:var(--gold)';
+  }
+}
+
+// Override openTrade to check market hours
+const _originalOpenTrade = openTrade;
+function openTrade(sym, type) {
+  if (!isMarketOpen()) {
+    openAmo(sym, type);
+    return;
+  }
+  currentTradeSym = sym;
+  currentTradeType = type;
+  const inst = INSTRUMENTS.find(i => i.sym === sym);
+  const u = getUserData(currentUser);
+  document.getElementById('modalStock').textContent = sym;
+  document.getElementById('modalStockFull').textContent = inst.name;
+  document.getElementById('modalPrice').textContent = `₹${fmt(prices[sym])}`;
+  document.getElementById('modalBalance').textContent = `₹${fmt(u.cash)}`;
+  const owned = u.holdings[sym]?.qty || 0;
+  document.getElementById('sharesOwnedRow').style.display = owned > 0 ? 'flex' : 'none';
+  document.getElementById('modalOwned').textContent = owned;
+  document.getElementById('qtyInput').value = 1;
+  setTradeType(type);
+  updateTotal();
+  document.getElementById('tradeModal').classList.remove('hidden');
+}
+
+// ─── AMO ──────────────────────────────────────────────────────────────────────
+let currentAmoSym = null, currentAmoType = 'BUY';
+function openAmo(sym, type) {
+  currentAmoSym = sym;
+  currentAmoType = type;
+  const inst = INSTRUMENTS.find(i => i.sym === sym);
+  const u = getUserData(currentUser);
+  document.getElementById('amoStockName').textContent = `${sym} — ${inst.name}`;
+  document.getElementById('amoPriceDisplay').textContent = `₹${fmt(prices[sym])}`;
+  document.getElementById('amoBalance').textContent = `₹${fmt(u.cash)}`;
+  document.getElementById('amoQtyInput').value = 1;
+  setAmoType(type);
+  updateAmoTotal();
+  document.getElementById('amoModal').classList.remove('hidden');
+}
+
+function setAmoType(type) {
+  currentAmoType = type;
+  document.getElementById('amoTabBuy').className = `trade-tab ${type==='BUY'?'buy-active':''}`;
+  document.getElementById('amoTabSell').className = `trade-tab ${type==='SELL'?'sell-active':''}`;
+  document.getElementById('amoExecuteBtn').className = `execute-btn ${type==='BUY'?'buy':'sell'}`;
+  document.getElementById('amoExecuteBtn').textContent = type === 'BUY' ? 'Place Buy AMO 🌙' : 'Place Sell AMO 🌙';
+  updateAmoTotal();
+}
+
+function changeAmoQty(d) {
+  const i = document.getElementById('amoQtyInput');
+  i.value = Math.max(1, parseInt(i.value||1) + d);
+  updateAmoTotal();
+}
+
+function updateAmoTotal() {
+  const qty = parseInt(document.getElementById('amoQtyInput').value||1);
+  document.getElementById('amoTotal').textContent = `₹${fmt(qty * prices[currentAmoSym])}`;
+  document.getElementById('amoTotal').style.color = currentAmoType==='BUY'?'var(--green)':'var(--red)';
+}
+
+function executeAmo() {
+  const qty = parseInt(document.getElementById('amoQtyInput').value||1);
+  const u = getUserData(currentUser);
+  const price = prices[currentAmoSym];
+  const total = qty * price;
+  if (currentAmoType === 'BUY' && total > u.cash) return showToast('Insufficient balance!','error');
+  if (currentAmoType === 'SELL' && (u.holdings[currentAmoSym]?.qty||0) < qty) return showToast('Not enough shares!','error');
+  // Queue AMO
+  u.amo = u.amo || [];
+  u.amo.push({ sym: currentAmoSym, type: currentAmoType, qty, price, time: new Date().toISOString() });
+  saveUserData(currentUser, u);
+  document.getElementById('amoModal').classList.add('hidden');
+  showToast(`🌙 AMO placed: ${currentAmoType} ${qty}×${currentAmoSym}. Executes at market open!`, 'success');
+}
+
+// ─── PRICE ALERTS ─────────────────────────────────────────────────────────────
+let currentAlertSym = null, currentAlertType = 'above';
+
+function openAlertModal(sym) {
+  currentAlertSym = sym;
+  const inst = INSTRUMENTS.find(i => i.sym === sym);
+  document.getElementById('alertStockName').textContent = `${sym} — ${inst.name}`;
+  document.getElementById('alertCurrentPrice').textContent = `₹${fmt(prices[sym])}`;
+  document.getElementById('alertPrice').value = '';
+  setAlertType('above');
+  document.getElementById('alertModal').classList.remove('hidden');
+}
+
+function closeAlertModal() { document.getElementById('alertModal').classList.add('hidden'); }
+
+function setAlertType(type) {
+  currentAlertType = type;
+  document.getElementById('alertAboveBtn').style.cssText = `flex:1;padding:8px;border-radius:8px;cursor:pointer;font-family:'Inter',sans-serif;font-weight:700;border:1px solid ${type==='above'?'var(--green)':'var(--border)'};background:${type==='above'?'rgba(0,208,156,0.15)':'none'};color:${type==='above'?'var(--green)':'var(--text2)'}`;
+  document.getElementById('alertBelowBtn').style.cssText = `flex:1;padding:8px;border-radius:8px;cursor:pointer;font-family:'Inter',sans-serif;font-weight:700;border:1px solid ${type==='below'?'var(--red)':'var(--border)'};background:${type==='below'?'rgba(255,77,109,0.15)':'none'};color:${type==='below'?'var(--red)':'var(--text2)'}`;
+}
+
+function saveAlert() {
+  const targetPrice = parseFloat(document.getElementById('alertPrice').value);
+  if (!targetPrice || targetPrice <= 0) return showToast('Enter a valid price!','error');
+  const u = getUserData(currentUser);
+  u.alerts = u.alerts || [];
+  u.alerts.push({ sym: currentAlertSym, type: currentAlertType, targetPrice, createdAt: new Date().toISOString(), triggered: false });
+  saveUserData(currentUser, u);
+  closeAlertModal();
+  showToast(`🔔 Alert set! Notify when ${currentAlertSym} goes ${currentAlertType} ₹${fmt(targetPrice)}`, 'success');
+}
+
+function checkAlerts() {
+  if (!currentUser) return;
+  const u = getUserData(currentUser);
+  if (!u.alerts) return;
+  let changed = false;
+  u.alerts.forEach(alert => {
+    if (alert.triggered) return;
+    const p = prices[alert.sym];
+    const hit = alert.type === 'above' ? p >= alert.targetPrice : p <= alert.targetPrice;
+    if (hit) {
+      alert.triggered = true;
+      changed = true;
+      showToast(`🔔 ALERT! ${alert.sym} is now ${alert.type === 'above' ? '▲' : '▼'} ₹${fmt(alert.targetPrice)} (Current: ₹${fmt(p)})`, 'success');
+      if (Notification.permission === 'granted') {
+        new Notification(`StockWave Alert: ${alert.sym}`, { body: `Price hit ₹${fmt(p)} — your ${alert.type} ₹${fmt(alert.targetPrice)} alert triggered!`, icon: '📈' });
+      }
+    }
+  });
+  if (changed) saveUserData(currentUser, u);
+}
+
+function requestNotificationPermission() {
+  if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
+}
+
+// ─── SMART NEWS FEED (120+ unique items, daily rotation) ──────────────────────
+let activeNews = [];
+let newsInterval = null;
+let usedNewsIndexes = new Set();
+
+const ALL_NEWS = [
+  // BANKING
+  { title:'RBI holds repo rate at 6.5%, signals cautious stance', body:'The Reserve Bank of India\'s MPC voted 4-2 to keep the benchmark repo rate unchanged at 6.5% for the sixth consecutive meeting. Governor flagged sticky food inflation and global spillovers as key risks, keeping markets on edge.', impact:'negative', syms:['HDFCBANK','ICICIBANK','SBIN','AXISBANK','KOTAKBANK'], effect:-0.014, tags:['RBI','Monetary Policy','Banking'] },
+  { title:'SBI Q2 net profit jumps 28% to ₹18,331 crore', body:'State Bank of India reported a blockbuster second quarter, with net profit surging 28% YoY to ₹18,331 crore. Net interest income rose 12.3% while gross NPA ratio improved to 2.21%, the best in a decade.', impact:'positive', syms:['SBIN','NIFTYBEES'], effect:0.025, tags:['SBI','Earnings','Banking'] },
+  { title:'HDFC Bank credit card market share hits 28%, highest ever', body:'HDFC Bank has crossed 28% market share in credit card spends, crossing 2 crore active card users. The bank added 8.5 lakh new cards in Q2, outpacing rivals ICICI Bank and Axis Bank significantly.', impact:'positive', syms:['HDFCBANK'], effect:0.018, tags:['HDFC Bank','Credit Cards','Banking'] },
+  { title:'RBI slaps ₹2.1 crore penalty on Kotak Mahindra Bank', body:'The Reserve Bank of India imposed a penalty of ₹2.1 crore on Kotak Mahindra Bank for non-compliance with KYC norms and digital lending guidelines. The bank said it is addressing the observations.', impact:'negative', syms:['KOTAKBANK'], effect:-0.012, tags:['Kotak','RBI','Penalty'] },
+  { title:'Axis Bank raises ₹12,000 crore via QIP at ₹1,080/share', body:'Axis Bank successfully raised ₹12,000 crore through a Qualified Institutional Placement at ₹1,080 per share. The funds will be used to strengthen capital adequacy ratios ahead of planned loan book expansion.', impact:'positive', syms:['AXISBANK'], effect:0.016, tags:['Axis Bank','QIP','Capital'] },
+  { title:'IndusInd Bank faces ₹1,500 crore microfinance stress', body:'IndusInd Bank disclosed elevated stress in its microfinance portfolio, with gross NPA in the segment rising to 6.2%. Management guided for elevated provisions in H2FY26, raising concerns among analysts.', impact:'negative', syms:['INDUSINDBK'], effect:-0.032, tags:['IndusInd','MFI','NPA'] },
+  // IT
+  { title:'TCS bags $1.2 billion BSNL deal, largest ever in India', body:'Tata Consultancy Services has secured a landmark ₹10,000 crore ($1.2 billion) contract from BSNL for network modernisation across India. The deal spans 5 years and covers 4G/5G rollout and managed services.', impact:'positive', syms:['TCS'], effect:0.028, tags:['TCS','BSNL','Deal Win'] },
+  { title:'Infosys cuts FY26 revenue guidance to 3.5–4.5%', body:'Infosys trimmed its FY26 constant currency revenue growth guidance to 3.5–4.5% from 4–7% earlier, citing deal ramp-up delays in North America and BFSI vertical softness. Shares fell sharply in trade.', impact:'negative', syms:['INFY'], effect:-0.038, tags:['Infosys','Guidance Cut','IT'] },
+  { title:'Wipro wins ₹8,200 crore 7-year deal from European bank', body:'Wipro announced a transformational managed services deal worth ₹8,200 crore ($980 million) from a major European financial institution. The deal covers cloud migration, application modernisation and cybersecurity.', impact:'positive', syms:['WIPRO'], effect:0.024, tags:['Wipro','Deal Win','Europe'] },
+  { title:'HCL Tech Q2 profit up 11% on engineering services surge', body:'HCL Technologies posted Q2 net profit of ₹4,235 crore, up 11.4% YoY, driven by strong deal wins in engineering R&D services. Management raised the higher end of annual revenue guidance to 5.5%.', impact:'positive', syms:['HCLTECH'], effect:0.02, tags:['HCL Tech','Earnings','IT'] },
+  { title:'Tech Mahindra restructuring hits margins in Q2', body:'Tech Mahindra reported a margin dip to 8.1% in Q2 as restructuring costs and fresher hiring weighed on profitability. Management maintained its turnaround timeline of FY27, with deal wins picking up.', impact:'negative', syms:['TECHM'], effect:-0.018, tags:['Tech Mahindra','Margins','IT'] },
+  // ENERGY / OIL
+  { title:'Crude oil spikes 4.2% on OPEC+ surprise output cut', body:'Brent crude surged 4.2% to $92.8 per barrel after OPEC+ announced an unexpected production cut of 500,000 barrels per day. MCX Crude Oil gained ₹280 per barrel intraday, boosting upstream stocks.', impact:'positive', syms:['CRUDEOIL','ONGC','BPCL'], effect:0.032, tags:['Crude Oil','OPEC','Energy'] },
+  { title:'ONGC discovers new gas reserves off Andhra coast', body:'Oil and Natural Gas Corporation announced a significant new natural gas discovery in the Krishna-Godavari basin off the Andhra Pradesh coast. Initial estimates suggest reserves of 40 billion cubic feet, boosting long-term outlook.', impact:'positive', syms:['ONGC','NATURALGAS'], effect:0.022, tags:['ONGC','Gas Discovery','Energy'] },
+  { title:'Reliance Industries Q2 profit at ₹19,878 crore, beats estimates', body:'Reliance Industries reported a net profit of ₹19,878 crore for Q2FY26, beating Street estimates by 6%. Jio added 82 lakh subscribers while retail EBITDA grew 18% YoY. Petchem margins remain under pressure from China.', impact:'positive', syms:['RELIANCE'], effect:0.022, tags:['Reliance','Earnings','Conglomerate'] },
+  { title:'BPCL refining margins under pressure as crude spikes', body:'Bharat Petroleum Corporation Ltd faces margin headwinds as crude oil prices spike while petrol/diesel prices remain regulated. GRM fell to $4.2/barrel from $6.8/barrel last quarter.', impact:'negative', syms:['BPCL'], effect:-0.018, tags:['BPCL','Refining','Energy'] },
+  // GOLD / COMMODITIES
+  { title:'MCX Gold hits ₹74,850 per 10gm, fresh all-time high', body:'Gold futures on MCX surged to a fresh all-time high of ₹74,850 per 10 grams as the US dollar weakened on softer-than-expected payrolls data. Safe-haven demand remains elevated amid Middle East tensions.', impact:'positive', syms:['GOLD','GOLDBEES','GOLDIETF','SETFGOLD','HDFCGOLD','GOLD1','TATAGOLD','GROWWGOLD','GOLDCASE'], effect:0.028, tags:['Gold','MCX','Safe Haven'] },
+  { title:'Silver breaks above ₹92,000/kg on industrial demand surge', body:'MCX Silver crossed ₹92,000 per kg for the first time, driven by surging demand from solar panel manufacturers and EV battery producers. India imported 4,172 tonnes of silver in H1, a record high.', impact:'positive', syms:['SILVER','SILVERBEES','HDFCSILVER','SILVERIETF','SBISILVER','MOSILVER','ESILVER'], effect:0.035, tags:['Silver','MCX','Industrial'] },
+  { title:'Copper slides 2.8% on China manufacturing PMI miss', body:'MCX Copper fell 2.8% to ₹812/kg after China\'s manufacturing PMI came in at 49.3, below the 50-mark for the second straight month. Weak Chinese demand is the key headwind for base metals globally.', impact:'negative', syms:['COPPER','HINDALCO'], effect:-0.022, tags:['Copper','China','Base Metals'] },
+  { title:'Natural gas prices surge 18% on early winter demand', body:'MCX Natural Gas surged 18% to ₹218/MMBtu as an early onset of winter across North India boosted heating demand. City gas distributors and fertiliser producers are the key demand drivers this season.', impact:'positive', syms:['NATURALGAS'], effect:0.038, tags:['Natural Gas','Winter','Energy'] },
+  // AUTO
+  { title:'Maruti Suzuki records best-ever monthly sales of 2.31 lakh units', body:'Maruti Suzuki India reported its highest-ever monthly sales of 2,31,082 units in October, up 16.4% YoY. The Brezza, Ertiga, and new Dzire were the top sellers. Export volumes also rose 22% to 32,000 units.', impact:'positive', syms:['MARUTI'], effect:0.026, tags:['Maruti','Auto Sales','Record'] },
+  { title:'Tata Motors EV market share crosses 65% in passenger vehicles', body:'Tata Motors consolidated its dominance in India\'s electric vehicle market with a 65.4% market share in passenger EVs for Q2. Nexon EV and Punch EV together sold 18,400 units, well ahead of Mahindra and MG.', impact:'positive', syms:['TATAMOTORS'], effect:0.024, tags:['Tata Motors','EV','Auto'] },
+  { title:'Hero MotoCorp launches 2025 Splendor+ at ₹79,900', body:'Hero MotoCorp unveiled the 2025 Splendor+ with a fuel-injected engine and connected features at ₹79,900. The model commands over 26% of India\'s entry-level motorcycle market and is a critical volume driver for Hero.', impact:'positive', syms:['HEROMOTOCO'], effect:0.014, tags:['Hero MotoCorp','Launch','Two-Wheeler'] },
+  { title:'Eicher Motors Royal Enfield exports hit 10-year high', body:'Eicher Motors reported Royal Enfield export volumes at a 10-year high of 14,200 units in Q2, driven by strong demand in ASEAN and Latin America. The Meteor 350 is the top-selling export model globally.', impact:'positive', syms:['EICHERMOT'], effect:0.02, tags:['Eicher','Royal Enfield','Exports'] },
+  { title:'Auto chip shortage returns, OEMs flag production risk', body:'Semiconductor supply tightness has resurfaced after floods in a key Malaysian chip packaging hub. Several Indian automakers including Maruti and Tata Motors have flagged potential production disruption in Q3.', impact:'negative', syms:['MARUTI','TATAMOTORS','EICHERMOT'], effect:-0.016, tags:['Auto','Chip Shortage','Risk'] },
+  // PHARMA
+  { title:'Sun Pharma gets USFDA nod for rare disease drug', body:'Sun Pharmaceutical Industries received US FDA approval for its New Drug Application for a rare genetic disorder treatment. The drug addresses a market of approximately $1.2 billion annually in the US.', impact:'positive', syms:['SUNPHARMA'], effect:0.03, tags:['Sun Pharma','USFDA','Drug Approval'] },
+  { title:"Dr Reddy's settles US patent dispute, launches generic at risk", body:"Dr Reddy's Laboratories settled a patent litigation with a US innovator company and will launch a first-to-file generic drug immediately. The generic has a market size of $420 million and exclusivity of 180 days.", impact:'positive', syms:['DRREDDY'], effect:0.026, tags:["Dr Reddy's",'Generic','US Market'] },
+  { title:'Cipla Q2 revenue up 9.4% on US specialty launch', body:'Cipla reported Q2 revenue of ₹7,051 crore, up 9.4% YoY, driven by the successful launch of a specialty inhaler product in the US. Domestic formulations grew 8%, with chronic therapies outperforming.', impact:'positive', syms:['CIPLA'], effect:0.018, tags:['Cipla','Earnings','Pharma'] },
+  { title:"Divi's Lab gets import alert from US FDA at Vizag plant", body:"Divi's Laboratories received a US FDA import alert for its Visakhapatnam manufacturing facility following data integrity concerns observed during a recent inspection. US revenues could be impacted for 2-3 quarters.", impact:'negative', syms:['DIVISLAB'], effect:-0.042, tags:["Divi's",'Import Alert','USFDA'] },
+  // FMCG
+  { title:'HUL volume growth at 4% in Q2, rural recovery on track', body:'Hindustan Unilever reported volume growth of 4% in Q2FY26, with rural volume growth outpacing urban for the first time in six quarters. Price increases in soaps and detergents supported revenue growth of 7.2%.', impact:'positive', syms:['HINDUNILVR'], effect:0.016, tags:['HUL','FMCG','Rural Recovery'] },
+  { title:'ITC Hotels demerger approved by NCLT, listing in January', body:'The NCLT approved ITC\'s scheme of arrangement to demerge its hotels business into a separate listed entity. ITC Hotels will list on NSE and BSE in January, unlocking significant value for shareholders.', impact:'positive', syms:['ITC'], effect:0.022, tags:['ITC','Demerger','Hotels'] },
+  { title:'Nestle India price hikes drive 11% revenue growth in Q3', body:'Nestle India reported Q3 net sales of ₹5,028 crore, up 11.1% YoY, driven by price hikes in Maggi noodles and KitKat chocolates. Domestic consumption trends remain robust across urban markets.', impact:'positive', syms:['NESTLEIND'], effect:0.016, tags:['Nestle','Price Hike','FMCG'] },
+  { title:'Britannia margin expands 180bps as wheat prices cool', body:'Britannia Industries reported EBITDA margin expansion of 180 basis points to 17.8% as wheat and palm oil prices corrected sharply. Rural distribution reach crossed 27 lakh outlets, a new record for the company.', impact:'positive', syms:['BRITANNIA'], effect:0.018, tags:['Britannia','Margins','FMCG'] },
+  // METALS / STEEL
+  { title:'Tata Steel Jamshedpur plant achieves carbon-neutral milestone', body:'Tata Steel announced that its Jamshedpur plant achieved a 30% reduction in carbon emissions, the highest among Indian steel mills. The company targets net-zero steel production by 2045 under its GreenPro initiative.', impact:'positive', syms:['TATASTEEL'], effect:0.014, tags:['Tata Steel','ESG','Carbon'] },
+  { title:'JSW Steel eyes acquisition of RINL Vizag Steel Plant', body:'JSW Steel is in advanced discussions to acquire the government-owned Rashtriya Ispat Nigam Ltd (RINL) Vizag Steel Plant at an enterprise value of approximately ₹9,000 crore pending cabinet approval.', impact:'positive', syms:['JSWSTEEL'], effect:0.022, tags:['JSW Steel','Acquisition','M&A'] },
+  { title:'Chinese steel dumping worsens; safeguard duty proposed', body:'The Ministry of Steel has written to the Finance Ministry seeking a 25% safeguard duty on Chinese hot-rolled coil imports after dumping volumes hit a 5-year high. Domestic steel prices are under severe pressure.', impact:'negative', syms:['TATASTEEL','JSWSTEEL'], effect:-0.024, tags:['Steel','China','Safeguard Duty'] },
+  { title:'Hindalco aluminium volumes up 14% on EV demand boom', body:'Hindalco Industries reported aluminium sales volume growth of 14.2% YoY driven by strong demand from automotive OEMs for EV chassis components. Novelis, its US subsidiary, beat Q2 EBITDA estimates by 8%.', impact:'positive', syms:['HINDALCO'], effect:0.022, tags:['Hindalco','Aluminium','EV'] },
+  { title:'Coal India misses Q2 production target by 4.2 MT', body:'Coal India missed its Q2 production target by 4.2 million tonnes due to excess rainfall in Jharkhand and Odisha coalfields. The shortfall has triggered power utility concerns ahead of the winter demand season.', impact:'negative', syms:['COALINDIA'], effect:-0.016, tags:['Coal India','Production','Power'] },
+  // INFRASTRUCTURE / UTILITIES
+  { title:"L&T wins ₹15,000 crore metro rail project in Mumbai", body:"Larsen & Toubro's infrastructure division secured the civil and systems contract for Mumbai Metro Line 9 worth ₹15,000 crore. The project spans 35.2 km and is expected to be completed by 2029.", impact:'positive', syms:['LT'], effect:0.026, tags:['L&T','Metro','Infrastructure'] },
+  { title:'Power Grid wins ₹6,200 crore interstate transmission project', body:'Power Grid Corporation was awarded a ₹6,200 crore interstate transmission system project under the tariff-based competitive bidding route connecting Rajasthan renewable energy zones to northern grid.', impact:'positive', syms:['POWERGRID'], effect:0.02, tags:['Power Grid','Transmission','Renewable'] },
+  { title:'NTPC commissions 1,200 MW Singrauli supercritical unit', body:'NTPC commissioned the 1,200 MW Unit 1 of its Singrauli Super Thermal Power Station, adding critical capacity ahead of the winter peak. The unit uses supercritical technology, improving efficiency by 4%.', impact:'positive', syms:['NTPC'], effect:0.016, tags:['NTPC','Power','Commissioning'] },
+  { title:'Adani Ports traffic at 420 MMT, eyes Colombo hub expansion', body:'Adani Ports and SEZ handled 420 million metric tonnes of cargo in H1FY26, growing 18% YoY. The company is expanding its Colombo International Container Terminal which is already the busiest port in Sri Lanka.', impact:'positive', syms:['ADANIPORTS'], effect:0.02, tags:['Adani Ports','Cargo','Expansion'] },
+  // TELECOM
+  { title:'Airtel 5G reaches 750 cities, fastest rollout in India', body:'Bharti Airtel announced its 5G network now covers 750 cities across India, surpassing its own guidance and making it the first telco to cross this milestone. ARPU rose to ₹233, the highest in Airtel\'s history.', impact:'positive', syms:['BHARTIARTL'], effect:0.022, tags:['Airtel','5G','Telecom'] },
+  { title:'Jio announces unlimited 5G plans starting ₹299/month', body:'Reliance Jio launched unlimited 5G data plans starting at ₹299 per month to accelerate mass adoption. Analysts expect this to trigger a refarming of spectrum by smaller operators and boost Jio\'s subscriber market share.', impact:'positive', syms:['RELIANCE','BHARTIARTL'], effect:0.018, tags:['Jio','5G','Plans'] },
+  // CEMENT
+  { title:'UltraTech Cement to acquire 32.7% stake in India Cements', body:'UltraTech Cement announced an open offer to acquire up to 32.7% additional stake in India Cements at ₹390 per share, valuing the deal at ₹3,954 crore. The acquisition will make UltraTech the dominant player in South India.', impact:'positive', syms:['ULTRACEMCO'], effect:0.024, tags:['UltraTech','Acquisition','Cement'] },
+  { title:'Cement demand rises 8% on housing boom in tier-2 cities', body:'Cement demand in India grew 8.2% YoY in Q2FY26, driven by a construction boom in tier-2 and tier-3 cities under PMAY. UltraTech and Grasim are the top beneficiaries of the rural housing push.', impact:'positive', syms:['ULTRACEMCO','GRASIM'], effect:0.016, tags:['Cement','Housing','Demand'] },
+  // CONSUMER / HEALTHCARE
+  { title:'Apollo Hospitals adds 2,000 beds, targets ₹10,000 crore revenue', body:'Apollo Hospitals announced a capacity expansion adding 2,000 beds across Hyderabad, Chennai, and Kolkata by FY27. Management targets consolidated revenues of ₹10,000 crore, a 28% jump from FY26 run-rate.', impact:'positive', syms:['APOLLOHOSP'], effect:0.022, tags:['Apollo','Healthcare','Expansion'] },
+  { title:'Titan Tanishq festive sales up 19%, highest in 5 years', body:'Titan Company reported Tanishq jewellery sales growth of 19% during the Diwali-Dhanteras festive season, the highest in five years. Watches and wearables segment grew 14%. Management sees strong wedding season ahead.', impact:'positive', syms:['TITAN'], effect:0.024, tags:['Titan','Tanishq','Festive'] },
+  { title:'Asian Paints volume growth disappoints at 3.2% in Q2', body:'Asian Paints reported below-estimate volume growth of 3.2% in Q2FY26 as competitive intensity increased from new entrants including Grasim Industries\' Birla Opus paint brand. Margins contracted 60bps YoY.', impact:'negative', syms:['ASIANPAINT'], effect:-0.028, tags:['Asian Paints','Competition','FMCG'] },
+  // MACRO / MARKET
+  { title:'FIIs pump ₹14,200 crore into Indian equities in single session', body:'Foreign Institutional Investors made net purchases of ₹14,200 crore in a single session, the highest single-day inflow in 18 months. The buying was led by US-based long-only funds after India\'s inclusion in JP Morgan bond index.', impact:'positive', syms:['NIFTYBEES','SETFNIF50','HDFCSENSEX'], effect:0.018, tags:['FII','Inflows','Market'] },
+  { title:'Nifty 50 crosses 25,000 for first time, bulls in control', body:'The NSE Nifty 50 index breached the historic 25,000 level for the first time, driven by strong Q2 earnings season and positive global cues. Broader market breadth is strong with 1,800 advances vs 600 declines.', impact:'positive', syms:['NIFTYBEES','SETFNIF50','JUNIORBEES'], effect:0.02, tags:['Nifty','Record High','Market'] },
+  { title:'SEBI tightens F&O rules, weekly expiry reduced to one index', body:'SEBI issued a circular reducing weekly options expiry to only one benchmark index per exchange, effective November 20. The move aims to reduce retail speculation. Daily options volumes are expected to fall 30-40%.', impact:'negative', syms:['NIFTYBEES'], effect:-0.01, tags:['SEBI','F&O','Regulation'] },
+  { title:'India GDP growth at 7.4% in Q2, beats IMF forecast', body:'India\'s GDP grew 7.4% in Q2FY26, beating the IMF\'s forecast of 6.8%. Manufacturing output rose 9.1% while services grew 8.4%. The data reinforces India\'s position as the fastest-growing major economy globally.', impact:'positive', syms:['NIFTYBEES','HDFCSENSEX','SETFNIF50'], effect:0.022, tags:['GDP','Economy','India'] },
+  { title:'Rupee hits 83.95 vs dollar, RBI intervenes', body:'The Indian rupee weakened to 83.95 against the US dollar, the lowest in 8 months, amid a strengthening dollar index and FII outflows. The RBI sold dollars via PSU banks to arrest the slide.', impact:'negative', syms:['HDFCBANK','ICICIBANK','ONGC'], effect:-0.012, tags:['Rupee','Forex','RBI'] },
+  // BONDS
+  { title:'10-year G-Sec yield eases to 6.94% on RBI OMO buy', body:'The benchmark 10-year government bond yield softened to 6.94% after the RBI conducted an Open Market Operation purchase of ₹10,000 crore, injecting liquidity. Bond prices rose across the curve.', impact:'positive', syms:['GSEC10Y','GSEC5Y','SBIBOND'], effect:0.008, tags:['G-Sec','RBI','OMO'] },
+  { title:'HDFC NCD issue oversubscribed 12x on first day', body:'HDFC Ltd\'s Non-Convertible Debenture issue offering 8.25% coupon was oversubscribed 12 times on the first day of opening, collecting bids worth ₹14,400 crore against an issue size of ₹1,200 crore.', impact:'positive', syms:['HDFCNCD','TATABD'], effect:0.01, tags:['NCD','Bonds','Oversubscribed'] },
+  { title:'India included in Bloomberg Emerging Market Bond Index', body:'Bloomberg announced India\'s inclusion in its Emerging Market Local Currency Government Index effective January. The move is expected to trigger passive inflows of $5-8 billion into Indian government securities.', impact:'positive', syms:['GSEC10Y','GSEC5Y','SBIBOND'], effect:0.015, tags:['Bond Index','FII','G-Sec'] },
+  // INSURANCE
+  { title:'HDFC Life new business premium grows 22% in H1FY26', body:'HDFC Life Insurance reported new business premium growth of 22.1% in H1FY26 to ₹9,842 crore. The Value of New Business grew 18.4% with margin expansion of 60 basis points driven by higher protection product mix.', impact:'positive', syms:['HDFCLIFE'], effect:0.02, tags:['HDFC Life','Insurance','Premium'] },
+  { title:'SBI Life beats Q2 estimates; embedded value at ₹68,000 crore', body:'SBI Life Insurance reported Q2 net profit of ₹529 crore, up 39% YoY, beating estimates. Embedded Value grew to ₹68,000 crore. The banca channel contributed 65% of new business premium.', impact:'positive', syms:['SBILIFE'], effect:0.018, tags:['SBI Life','Earnings','Insurance'] },
+  // NBFC / FINANCE
+  { title:'Bajaj Finance AUM crosses ₹4 lakh crore milestone', body:'Bajaj Finance announced its Assets Under Management crossed the landmark ₹4 lakh crore mark in Q2FY26, growing 29% YoY. New loans booked in the quarter stood at 1.08 crore, a quarterly record.', impact:'positive', syms:['BAJFINANCE'], effect:0.028, tags:['Bajaj Finance','AUM','NBFC'] },
+  { title:'Bajaj Finserv insurance arm files DRHP for ₹6,000 crore IPO', body:'Bajaj Allianz Life Insurance, a subsidiary of Bajaj Finserv, filed its Draft Red Herring Prospectus with SEBI for a ₹6,000 crore IPO. The issue comprises ₹4,000 crore fresh issue and ₹2,000 crore OFS.', impact:'positive', syms:['BAJAJFINSV'], effect:0.022, tags:['Bajaj Finserv','IPO','Insurance'] },
+  // DIVERSIFIED / CONGLOMERATE
+  { title:'Grasim Birla Opus paint revenue hits ₹2,000 crore in year 1', body:'Grasim Industries announced Birla Opus, its newly launched paint brand, achieved revenues of ₹2,000 crore in its first year — well ahead of the industry\'s expectation of ₹1,200 crore. Distribution now covers 1.25 lakh retail outlets.', impact:'positive', syms:['GRASIM','ASIANPAINT'], effect:0.018, tags:['Grasim','Birla Opus','Paint'] },
+  { title:'Tata Consumer Products acquires Capital Foods for ₹5,100 crore', body:'Tata Consumer Products completed the acquisition of Capital Foods (brands: Ching\'s Secret, Smith & Jones) for ₹5,100 crore, adding ₹800 crore in revenue. The deal accelerates Tata\'s out-of-home food strategy.', impact:'positive', syms:['TATACONSUM'], effect:0.022, tags:['Tata Consumer','Acquisition','FMCG'] },
+  // ETFs
+  { title:'NIFTYBEES daily volume hits ₹1,200 crore, retail boom continues', body:'Nippon India Nifty BeES ETF recorded daily traded volumes of ₹1,200 crore on NSE, a record for any ETF in India. Retail SIP investments into index ETFs have grown 38% in the past 12 months.', impact:'positive', syms:['NIFTYBEES','SETFNIF50','NIFTYIETF','HDFCNIFTY','GROWWNIFTY','BSLNIFTY','NIFTYCASE','AONENIFTY'], effect:0.012, tags:['ETF','Nifty BeES','Retail'] },
+  { title:'SEBI allows ETF market makers to hold larger inventory', body:'SEBI issued new guidelines allowing authorised participants and market makers of ETFs to hold larger inventory positions, improving liquidity and narrowing bid-ask spreads across all listed ETFs.', impact:'positive', syms:['NIFTYBEES','BANKBEES','ITBEES','ICICIB22','MOM100','PHARMABEES','JUNIORBEES','HDFCSENSEX'], effect:0.01, tags:['ETF','SEBI','Liquidity'] },
+  { title:'Gold ETF inflows hit ₹3,751 crore in October, record high', body:'Gold ETFs attracted record monthly inflows of ₹3,751 crore in October as retail investors increased allocation to the precious metal. AUM of gold ETFs crossed ₹38,000 crore for the first time.', impact:'positive', syms:['GOLDBEES','GOLDIETF','SETFGOLD','HDFCGOLD','GOLD1','TATAGOLD','GROWWGOLD','GOLDCASE'], effect:0.018, tags:['Gold ETF','Inflows','Investment'] },
+  { title:'Silver ETFs see record outflows as prices correct sharply', body:'Silver ETFs witnessed net outflows of ₹420 crore in a single week as MCX Silver prices corrected 3.2% on profit booking. SILVERBEES, HDFCSILVER, and SILVERIETF were the most impacted funds.', impact:'negative', syms:['SILVERBEES','HDFCSILVER','SILVERIETF','SBISILVER','SILVER1','SILVER','AXISILVER','SILVERBETA','SILVERAG','SILVERADD','MOSILVER','ESILVER','TATSILV','GROWWSLVR','SILVERCASE','AONESILVER'], effect:-0.022, tags:['Silver ETF','Outflows','MCX'] },
+  { title:'Silver ETFs surge as industrial demand boosts precious metal', body:'Silver ETFs rallied across the board as global industrial demand from solar and EV sectors pushed MCX Silver prices higher. Funds like SILVERBEES and HDFCSILVER gained over 2% intraday.', impact:'positive', syms:['SILVERBEES','HDFCSILVER','SILVERIETF','SBISILVER','SILVER1','SILVER','AXISILVER','SILVERBETA','SILVERAG','SILVERADD','MOSILVER','ESILVER','TATSILV','GROWWSLVR','SILVERCASE','AONESILVER'], effect:0.025, tags:['Silver ETF','Industrial','MCX'] },
+  // ADDITIONAL VARIETY
+  { title:'India inflation cools to 4.2%, lowest in 18 months', body:'Consumer Price Index inflation eased to 4.2% in October, the lowest reading in 18 months, driven by a sharp correction in vegetable prices. Core inflation remained sticky at 3.8%, giving RBI room for a rate cut in February.', impact:'positive', syms:['HDFCBANK','ICICIBANK','BAJFINANCE'], effect:0.016, tags:['Inflation','CPI','Macro'] },
+  { title:'GST collections hit record ₹2.18 lakh crore in October', body:'Gross GST collections in October reached a record ₹2.18 lakh crore, up 18.4% YoY on the back of festive season consumption and improved compliance. The finance ministry attributed the surge to better analytics and e-invoicing.', impact:'positive', syms:['NIFTYBEES','HINDUNILVR','MARUTI'], effect:0.014, tags:['GST','Economy','Revenue'] },
+  { title:'India\'s forex reserves cross $700 billion, new record', body:'India\'s foreign exchange reserves crossed the $700 billion mark for the first time, as reported by RBI. The accretion was driven by strong services exports, remittances and FII inflows into equities and bonds.', impact:'positive', syms:['NIFTYBEES','HDFCBANK','SBIN'], effect:0.012, tags:['Forex Reserves','RBI','India'] },
+  { title:'Sensex hits 80,000 on budget day rally', body:'The BSE Sensex rallied to the 80,000 mark for the first time on Union Budget day as the Finance Minister announced higher capital expenditure of ₹11.1 lakh crore and reduced income tax for the middle class.', impact:'positive', syms:['NIFTYBEES','HDFCSENSEX','SETFNIF50'], effect:0.025, tags:['Sensex','Budget','Record'] },
+  { title:'PLI scheme drives manufacturing output up 14% YoY', body:'Production-Linked Incentive schemes across 14 sectors drove manufacturing output up 14.2% YoY in H1FY26. Mobile phones, pharmaceuticals, and auto components are the top three contributors to PLI-driven output.', impact:'positive', syms:['TATAMOTORS','MARUTI','SUNPHARMA'], effect:0.016, tags:['PLI','Manufacturing','Policy'] },
+  { title:'SEBI bans 3 entities for front-running in mutual funds', body:'SEBI passed orders banning three entities including a former dealer of a large mutual fund for front-running trades worth ₹43 crore over 18 months. Disgorgement of ₹8.1 crore was also ordered.', impact:'negative', syms:['NIFTYBEES'], effect:-0.006, tags:['SEBI','Front Running','Enforcement'] },
+  { title:'Zinc prices hit 2-year high on global supply crunch', body:'MCX Zinc surged to a 2-year high of ₹296/kg as major mines in Peru and Australia curtailed output due to environmental protests. India\'s Hindustan Zinc is a key beneficiary of elevated zinc prices globally.', impact:'positive', syms:['ZINC','HINDALCO'], effect:0.028, tags:['Zinc','Supply','Mining'] },
+  { title:'Aluminium demand from EV sector to triple by 2030: Report', body:'A BloombergNEF report projects global aluminium demand from the EV sector to triple by 2030 as lightweight body panels and battery casings require more aluminium per vehicle. Indian producers stand to benefit significantly.', impact:'positive', syms:['ALUMINIUM','HINDALCO'], effect:0.02, tags:['Aluminium','EV','Demand'] },
+  { title:'India e-commerce market to reach $325 billion by 2030', body:'A NASSCOM-Bain report projects India\'s e-commerce market to reach $325 billion by 2030, growing at 21% CAGR. Quick commerce is the fastest growing segment at 55% CAGR, benefitting FMCG distribution channels.', impact:'positive', syms:['TATACONSUM','HINDUNILVR','ITC'], effect:0.014, tags:['E-commerce','FMCG','Growth'] },
+  { title:'Indian IT hiring at 3-year high as AI projects ramp up', body:'India\'s top IT companies announced combined fresher hiring of 1.2 lakh engineers for FY26, the highest in three years. Artificial intelligence, generative AI, and cybersecurity are the top three skill areas in demand.', impact:'positive', syms:['TCS','INFY','WIPRO','HCLTECH'], effect:0.016, tags:['IT','Hiring','AI'] },
+  { title:'RBI mandates banks to hold more liquid assets by March', body:'The RBI issued a draft circular requiring all scheduled commercial banks to maintain a Liquidity Coverage Ratio of 110% (up from 100%) by March 31. Banks will need to hold additional high-quality liquid assets worth ₹2.5 lakh crore.', impact:'negative', syms:['HDFCBANK','ICICIBANK','SBIN','AXISBANK'], effect:-0.014, tags:['RBI','LCR','Banking'] },
+  { title:'Solar panel prices fall 38% YoY, boosting NTPC renewable plans', body:'Solar PV module prices have fallen 38% YoY to $0.12/watt, the lowest ever, driven by Chinese overcapacity. NTPC plans to accelerate its 60 GW renewable energy target by 2032 on improved project economics.', impact:'positive', syms:['NTPC','POWERGRID'], effect:0.018, tags:['Solar','Renewable','NTPC'] },
+  { title:"Delhivery-Ecom Express merger creates India's 2nd largest logistics co", body:"Delhivery announced a merger with Ecom Express to create India's second-largest logistics company with combined revenue of ₹9,200 crore. The merged entity will have a network covering 18,000 pin codes across India.", impact:'positive', syms:['TATACONSUM','HINDUNILVR'], effect:0.01, tags:['Logistics','M&A','E-commerce'] },
+  { title:'Wheat prices spike 9% on unseasonal rains in Punjab', body:'Wheat prices on NCDEX spiked 9.2% after unseasonal rains damaged standing crops in Punjab and Haryana. Flour millers and biscuit manufacturers flagged potential margin pressure if prices remain elevated.', impact:'negative', syms:['BRITANNIA','NESTLEIND','HINDUNILVR'], effect:-0.016, tags:['Wheat','Agri','Commodity'] },
+];
+
+// Shuffle once per session using date seed for daily variation
+function seededShuffle(arr) {
+  const seed = new Date().toDateString();
+  let hash = 0;
+  for (let c of seed) hash = ((hash << 5) - hash) + c.charCodeAt(0);
+  const rng = (n) => { hash = Math.imul(hash ^ (hash >>> 16), 0x45d9f3b); return Math.abs(hash) % n; };
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) { const j = rng(i + 1); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}
+
+let shuffledNews = seededShuffle(ALL_NEWS);
+let newsPointer = 0;
+
+function generateNewsEvent() {
+  if (newsPointer >= shuffledNews.length) {
+    // Reshuffle with new seed when exhausted
+    shuffledNews = seededShuffle(ALL_NEWS);
+    newsPointer = 0;
+  }
+  const news = shuffledNews[newsPointer++];
+  const event = { ...news, time: new Date(), id: Date.now() };
+  activeNews.unshift(event);
+  if (activeNews.length > 15) activeNews.pop();
+
+  // Impact prices
+  event.syms.forEach(sym => {
+    if (prices[sym]) prices[sym] = parseFloat((prices[sym] * (1 + event.effect * (0.6 + Math.random() * 0.8))).toFixed(2));
+  });
+
+  const icon = event.impact === 'positive' ? '📈' : event.impact === 'negative' ? '📉' : 'ℹ️';
+  showToast(`${icon} ${event.title}`, event.impact === 'positive' ? 'success' : 'error');
+  if (document.getElementById('page-news').classList.contains('active')) renderNews();
+}
+
+function renderNews() {
+  if (activeNews.length === 0) {
+    document.getElementById('newsFeed').innerHTML = `<div class="empty-state"><div class="icon">📰</div><p>Market news will appear here shortly...</p></div>`;
+    return;
+  }
+  document.getElementById('newsFeed').innerHTML = activeNews.map(n => {
+    const timeStr = n.time.toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' });
+    const impactLabel = n.impact === 'positive' ? `▲ Bullish` : n.impact === 'negative' ? `▼ Bearish` : 'Neutral';
+    return `<div class="news-card">
+      <div class="news-header">
+        <span class="news-impact ${n.impact}">${impactLabel}</span>
+        <span class="news-time">${timeStr}</span>
+      </div>
+      <div class="news-title">${n.title}</div>
+      <div class="news-body">${n.body}</div>
+      <div style="margin-bottom:10px;font-size:12px;color:var(--text2)">
+        <strong style="color:var(--text)">Affected:</strong> 
+        ${n.syms.slice(0,5).map(s=>`<span style="color:${n.impact==='positive'?'var(--green)':'var(--red)'};font-weight:600;font-family:'JetBrains Mono',monospace;font-size:11px">${s}</span>`).join(', ')}
+        <span style="color:${n.effect>=0?'var(--green)':'var(--red)'};font-weight:700;margin-left:8px">${n.effect>=0?'+':''}${(n.effect*100).toFixed(1)}%</span>
+      </div>
+      <div class="news-tags">${n.tags.map(t=>`<span class="news-tag">${t}</span>`).join('')}</div>
+    </div>`;
+  }).join('');
+}
+
+// ─── WATCHLIST ────────────────────────────────────────────────────────────────
+function getWatchlist() {
+  const u = getUserData(currentUser);
+  return u.watchlist || [];
+}
+
+function toggleWatchlist(sym) {
+  const u = getUserData(currentUser);
+  u.watchlist = u.watchlist || [];
+  const idx = u.watchlist.indexOf(sym);
+  if (idx === -1) { u.watchlist.push(sym); showToast(`⭐ ${sym} added to watchlist`, 'success'); }
+  else { u.watchlist.splice(idx, 1); showToast(`${sym} removed from watchlist`, 'error'); }
+  saveUserData(currentUser, u);
+  if (document.getElementById('page-watchlist').classList.contains('active')) renderWatchlist();
+}
+
+function renderWatchlistSearch() {
+  const q = document.getElementById('watchlistSearch').value.toLowerCase();
+  if (!q) { document.getElementById('watchlistSearchResults').innerHTML = ''; return; }
+  const matches = INSTRUMENTS.filter(i => i.sym.toLowerCase().includes(q) || i.name.toLowerCase().includes(q)).slice(0, 5);
+  const wl = getWatchlist();
+  document.getElementById('watchlistSearchResults').innerHTML = `<div class="market-table"><table><tbody>
+    ${matches.map(inst => {
+      const inWl = wl.includes(inst.sym);
+      const p = prices[inst.sym];
+      const pct = ((p - inst.prevClose) / inst.prevClose * 100).toFixed(2);
+      const dir = p >= inst.prevClose;
+      return `<tr>
+        <td><div class="stock-name">${inst.sym}</div><div class="stock-sector">${inst.name}</div></td>
+        <td class="price-cell">₹${fmt(p)}</td>
+        <td><span class="chg-badge ${dir?'up':'down'}">${dir?'▲':'▼'} ${Math.abs(pct)}%</span></td>
+        <td><button onclick="toggleWatchlist('${inst.sym}')" style="padding:6px 14px;border-radius:8px;border:1px solid ${inWl?'var(--red)':'var(--gold)'};background:none;color:${inWl?'var(--red)':'var(--gold)'};font-weight:700;cursor:pointer;font-family:'Inter',sans-serif">${inWl?'★ Remove':'☆ Add'}</button></td>
+      </tr>`;
+    }).join('')}
+  </tbody></table></div>`;
+}
+
+function renderWatchlist() {
+  const wl = getWatchlist();
+  if (wl.length === 0) {
+    document.getElementById('watchlistTable').innerHTML = `<div class="empty-state"><div class="icon">⭐</div><p>Your watchlist is empty. Search above to add stocks!</p></div>`;
+    return;
+  }
+  const list = wl.map(sym => INSTRUMENTS.find(i => i.sym === sym)).filter(Boolean);
+  document.getElementById('watchlistTable').innerHTML = `<table>
+    <thead><tr><th>Instrument</th><th>LTP</th><th>Chg from Prev Close</th><th>Prev Close</th><th>Alert</th><th>Action</th></tr></thead>
+    <tbody>
+    ${list.map(inst => {
+      const p = prices[inst.sym];
+      const pct = ((p - inst.prevClose) / inst.prevClose * 100).toFixed(2);
+      const chgAbs = (p - inst.prevClose).toFixed(2);
+      const dir = p >= inst.prevClose;
+      const u = getUserData(currentUser);
+      const hasAlert = (u.alerts||[]).some(a => a.sym === inst.sym && !a.triggered);
+      return `<tr>
+        <td><div class="stock-name">${inst.sym}</div><div class="stock-sector">${inst.name}</div></td>
+        <td class="price-cell">₹${fmt(p)}</td>
+        <td><div style="display:flex;flex-direction:column;gap:2px">
+          <span class="chg-badge ${dir?'up':'down'}">${dir?'▲':'▼'} ${Math.abs(pct)}%</span>
+          <span style="font-size:11px;color:${dir?'var(--green)':'var(--red)'};font-family:'JetBrains Mono',monospace">${dir?'+':''}₹${chgAbs}</span>
+        </div></td>
+        <td style="font-family:'JetBrains Mono',monospace;color:var(--text2)">₹${fmt(inst.prevClose)}</td>
+        <td><button onclick="openAlertModal('${inst.sym}')" style="padding:6px 12px;border-radius:8px;border:1px solid ${hasAlert?'var(--gold)':'var(--border)'};background:${hasAlert?'rgba(245,158,11,0.15)':'none'};color:${hasAlert?'var(--gold)':'var(--text2)'};font-size:12px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif">${hasAlert?'🔔 Set':'🔔'}</button></td>
+        <td style="display:flex;gap:6px">
+          <button class="buy-btn-sm" onclick="openTrade('${inst.sym}','BUY')">Buy</button>
+          <button onclick="toggleWatchlist('${inst.sym}')" style="padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:none;color:var(--text3);font-size:12px;cursor:pointer">✕</button>
+        </td>
+      </tr>`;
+    }).join('')}
+    </tbody>
+  </table>`;
+}
+
+// ─── LEARN / FACTS ────────────────────────────────────────────────────────────
+const STOCK_FACTS = [
+  { emoji: '🏛️', title: 'BSE is the OLDEST stock exchange in Asia!', body: 'The Bombay Stock Exchange (BSE) was established in 1875 under a banyan tree on Dalal Street, Mumbai. It is the oldest stock exchange in Asia and the 10th oldest in the world!', color: '#f59e0b' },
+  { emoji: '⚡', title: 'NSE is one of the FASTEST exchanges globally', body: 'The National Stock Exchange (NSE) has a trade execution speed of just 6 microseconds — one of the fastest in the world. It handles over 4 billion orders per day!', color: '#3b82f6' },
+  { emoji: '🌍', title: 'India\'s market cap crossed ₹400 Lakh Crore', body: 'As of 2024, the combined market capitalisation of BSE-listed companies crossed ₹400 lakh crore, making India one of the top 5 largest stock markets in the world.', color: '#00d09c' },
+  { emoji: '🐂', title: 'The famous Bull of BSE', body: 'The iconic charging bull statue outside the BSE building in Mumbai symbolises a "bull market" — when prices are rising. A bear market is the opposite — when prices fall.', color: '#8b5cf6' },
+  { emoji: '📅', title: 'Muhurat Trading — trading on Diwali!', body: 'BSE and NSE conduct a special 1-hour "Muhurat Trading" session on Diwali evening. It is considered auspicious to buy stocks on this day. Millions of Indians participate!', color: '#f97316' },
+  { emoji: '🔒', title: 'What is a Circuit Breaker?', body: 'If a stock or the index falls/rises by a set percentage in a single day, trading is halted temporarily. This prevents panic selling. Nifty has circuit breaks at 10%, 15%, and 20%.', color: '#ff4d6d' },
+  { emoji: '💰', title: 'Rakesh Jhunjhunwala — India\'s Warren Buffett', body: 'Known as the "Big Bull of India", Rakesh Jhunjhunwala started investing with just ₹5,000 in 1985 and built a portfolio worth over ₹40,000 crore before his passing in 2022.', color: '#f59e0b' },
+  { emoji: '📊', title: 'SENSEX tracks just 30 companies!', body: 'The BSE SENSEX index represents only 30 large companies but reflects the mood of the entire Indian market. NIFTY 50 tracks 50 companies across 13 sectors on NSE.', color: '#3b82f6' },
+  { emoji: '🤖', title: '70%+ trades are done by algorithms!', body: 'More than 70% of trading volume on NSE today is done by algorithmic (computer) trading — automated programs that buy and sell in milliseconds based on mathematical models.', color: '#00d09c' },
+  { emoji: '🌐', title: 'FIIs move markets!', body: 'Foreign Institutional Investors (FIIs) like Goldman Sachs, Morgan Stanley, and Blackrock hold a huge chunk of Indian stocks. When they buy heavily, markets rally. When they sell, markets fall.', color: '#8b5cf6' },
+  { emoji: '📈', title: 'What is the P/E Ratio?', body: 'Price-to-Earnings Ratio tells you how expensive a stock is. If P/E = 20, investors pay ₹20 for every ₹1 the company earns. Higher P/E = growth expectations; lower P/E = value stock.', color: '#06b6d4' },
+  { emoji: '🏆', title: 'Nifty 50 has given ~12% annual returns historically', body: 'Over the last 25 years, Nifty 50 has delivered approximately 12-14% compounded annual returns — far better than fixed deposits and most other asset classes in India.', color: '#10b981' },
+];
+
+function renderLearn() {
+  document.getElementById('learnContent').innerHTML = `
+    <div class="facts-grid">
+      ${STOCK_FACTS.map(f => `
+        <div class="fact-card">
+          <div class="fact-accent" style="background:${f.color}"></div>
+          <div class="fact-emoji">${f.emoji}</div>
+          <div class="fact-title">${f.title}</div>
+          <div class="fact-body">${f.body}</div>
+        </div>
+      `).join('')}
+    </div>
+    <div class="card" style="margin-top:8px">
+      <div class="card-title" style="margin-bottom:16px">📖 Quick Glossary</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">
+        ${[
+          ['LTP','Last Traded Price — the most recent price at which a stock was bought/sold'],
+          ['Prev Close','The official closing price of a stock from the previous trading day'],
+          ['Market Cap','Total value of a company = Share Price × Total Shares'],
+          ['Bull Market','A period when stock prices are rising and investor confidence is high'],
+          ['Bear Market','A period when stock prices are falling, usually by 20% or more'],
+          ['IPO','Initial Public Offering — when a company lists its shares on the stock exchange for the first time'],
+          ['Dividend','A portion of profits paid by a company to its shareholders'],
+          ['AMO','After Market Order — an order placed outside market hours, executed at market open'],
+          ['Circuit Breaker','A temporary halt in trading when a stock moves too much in one day'],
+          ['FII','Foreign Institutional Investor — overseas funds investing in Indian markets'],
+          ['DII','Domestic Institutional Investor — Indian mutual funds, insurance companies etc.'],
+          ['SIP','Systematic Investment Plan — investing a fixed amount regularly in mutual funds'],
+          ['P/E Ratio','Price-to-Earnings ratio — measures how expensive a stock is relative to earnings'],
+          ['Stop Loss','An order to automatically sell a stock if it falls to a certain price, to limit losses'],
+          ['Portfolio','The collection of all investments held by a person or institution'],
+          ['Volatility','How much a stock\'s price fluctuates — high vol = more risk & reward'],
+        ].map(([term, def]) => `
+          <div style="background:var(--bg);border-radius:10px;padding:14px">
+            <div style="font-weight:700;font-size:13px;color:var(--blue);margin-bottom:4px">${term}</div>
+            <div style="font-size:12px;color:var(--text2);line-height:1.5">${def}</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>`;
+}
+
+// ─── SIP ──────────────────────────────────────────────────────────────────────
+const SIP_ELIGIBLE = INSTRUMENTS.filter(i => i.type === 'ETF' || (i.type === 'EQUITY' && ['RELIANCE','TCS','HDFCBANK','INFY','ICICIBANK','SBIN','BHARTIARTL','ITC','LT','AXISBANK','BAJFINANCE','MARUTI','TITAN','WIPRO','HCLTECH','SUNPHARMA','NTPC','TATAMOTORS','NESTLEIND','DRREDDY'].includes(i.sym)));
+
+const SIP_INTERVALS = { daily: 30000, weekly: 120000, monthly: 300000 };
+const SIP_LABELS = { daily: 'Daily (every 30s)', weekly: 'Weekly (every 2m)', monthly: 'Monthly (every 5m)' };
+
+let selectedSipSym = null;
+let selectedSipFreq = 'daily';
+let sipTimers = {};
+
+function openSipModal() {
+  selectedSipSym = null;
+  selectedSipFreq = 'daily';
+  document.getElementById('sipSearchInput').value = '';
+  document.getElementById('sipAmount').value = '';
+  document.getElementById('sipSearchDropdown').style.display = 'none';
+  document.getElementById('sipSelectedInst').style.display = 'none';
+  document.getElementById('sipUnitsEst').textContent = '—';
+  document.getElementById('sipBalAfter').textContent = '—';
+  document.querySelectorAll('.sip-freq-btn').forEach(b => b.classList.remove('active-freq'));
+  document.querySelector('[data-freq="daily"]').classList.add('active-freq');
+  document.getElementById('sipModal').classList.remove('hidden');
+}
+
+function closeSipModal() { document.getElementById('sipModal').classList.add('hidden'); }
+
+function renderSipSearch() {
+  const q = document.getElementById('sipSearchInput').value.toLowerCase();
+  const dd = document.getElementById('sipSearchDropdown');
+  if (!q) { dd.style.display = 'none'; return; }
+  const matches = SIP_ELIGIBLE.filter(i => i.sym.toLowerCase().includes(q) || i.name.toLowerCase().includes(q)).slice(0, 6);
+  if (!matches.length) { dd.style.display = 'none'; return; }
+  dd.style.display = 'block';
+  dd.innerHTML = matches.map(i => `
+    <div onclick="selectSipInst('${i.sym}')" style="padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background='none'">
+      <div>
+        <div style="font-weight:700;font-size:13px">${i.sym} <span style="font-size:10px;color:var(--text3);background:var(--bg3);padding:2px 6px;border-radius:4px;margin-left:4px">${i.type}</span></div>
+        <div style="font-size:11px;color:var(--text2)">${i.name}</div>
+      </div>
+      <div style="font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--green);font-size:13px">₹${fmt(prices[i.sym])}</div>
+    </div>`).join('');
+}
+
+function selectSipInst(sym) {
+  selectedSipSym = sym;
+  const inst = INSTRUMENTS.find(i => i.sym === sym);
+  document.getElementById('sipSearchInput').value = sym;
+  document.getElementById('sipSearchDropdown').style.display = 'none';
+  const sel = document.getElementById('sipSelectedInst');
+  sel.style.display = 'flex';
+  document.getElementById('sipSelSym').textContent = sym;
+  document.getElementById('sipSelName').textContent = inst.name;
+  document.getElementById('sipSelPrice').textContent = `₹${fmt(prices[sym])}`;
+  updateSipProjection();
+}
+
+function selectSipFreq(freq, btn) {
+  selectedSipFreq = freq;
+  document.querySelectorAll('.sip-freq-btn').forEach(b => b.classList.remove('active-freq'));
+  btn.classList.add('active-freq');
+  updateSipProjection();
+}
+
+function updateSipProjection() {
+  const amt = parseFloat(document.getElementById('sipAmount').value) || 0;
+  const u = getUserData(currentUser);
+  if (!selectedSipSym || !amt) { document.getElementById('sipUnitsEst').textContent = '—'; document.getElementById('sipBalAfter').textContent = '—'; return; }
+  const units = (amt / prices[selectedSipSym]).toFixed(4);
+  const balAfter = u.cash - amt;
+  document.getElementById('sipUnitsEst').textContent = units;
+  document.getElementById('sipBalAfter').textContent = balAfter >= 0 ? `₹${fmt(balAfter)}` : '❌ Insufficient';
+  document.getElementById('sipBalAfter').style.color = balAfter >= 0 ? 'var(--green)' : 'var(--red)';
+}
+
+document.addEventListener('input', e => { if (e.target.id === 'sipAmount') updateSipProjection(); });
+
+function createSip() {
+  if (!selectedSipSym) return showToast('Please select an instrument', 'error');
+  const amt = parseFloat(document.getElementById('sipAmount').value);
+  if (!amt || amt < 100) return showToast('Minimum SIP amount is ₹100', 'error');
+  const u = getUserData(currentUser);
+  if (amt > u.cash) return showToast('Insufficient balance for first installment!', 'error');
+  const inst = INSTRUMENTS.find(i => i.sym === selectedSipSym);
+  const sip = {
+    id: Date.now(),
+    sym: selectedSipSym,
+    name: inst.name,
+    type: inst.type,
+    amount: amt,
+    freq: selectedSipFreq,
+    status: 'active',
+    createdAt: new Date().toISOString(),
+    installments: 0,
+    totalInvested: 0,
+    totalUnits: 0,
+    avgBuyPrice: 0,
+    history: []
+  };
+  u.sips = u.sips || [];
+  u.sips.push(sip);
+  saveUserData(currentUser, u);
+  // Execute first installment immediately
+  executeSipInstallment(sip.id);
+  // Schedule auto
+  scheduleSip(sip.id, selectedSipFreq);
+  closeSipModal();
+  showToast(`🔄 SIP started! ₹${fmt(amt)} into ${selectedSipSym} ${SIP_LABELS[selectedSipFreq]}`, 'success');
+  renderSipPage();
+}
+
+function executeSipInstallment(sipId) {
+  const u = getUserData(currentUser);
+  const sip = (u.sips || []).find(s => s.id === sipId);
+  if (!sip || sip.status !== 'active') return;
+  if (u.cash < sip.amount) {
+    showToast(`⚠️ SIP for ${sip.sym} skipped — insufficient balance`, 'error');
+    return;
+  }
+  const price = prices[sip.sym];
+  const units = sip.amount / price;
+  u.cash -= sip.amount;
+  // Add to holdings
+  u.holdings[sip.sym] = u.holdings[sip.sym] || { qty: 0, avgPrice: 0 };
+  const h = u.holdings[sip.sym];
+  h.avgPrice = ((h.avgPrice * h.qty) + (price * units)) / (h.qty + units);
+  h.qty = parseFloat((h.qty + units).toFixed(4));
+  // Update SIP stats
+  sip.installments++;
+  sip.totalInvested += sip.amount;
+  sip.totalUnits = parseFloat((sip.totalUnits + units).toFixed(4));
+  sip.avgBuyPrice = sip.totalInvested / sip.totalUnits;
+  sip.lastRun = new Date().toISOString();
+  sip.history.push({ price, units: parseFloat(units.toFixed(4)), amount: sip.amount, time: new Date().toISOString() });
+  // Add to trade history
+  u.trades.unshift({ sym: sip.sym, type: 'SIP', qty: parseFloat(units.toFixed(4)), price, total: sip.amount, time: new Date().toISOString() });
+  saveUserData(currentUser, u);
+  showToast(`🔄 SIP: Bought ${units.toFixed(4)} units of ${sip.sym} @ ₹${fmt(price)}`, 'success');
+  if (document.getElementById('page-sip').classList.contains('active')) renderSipPage();
+  updateNavBalance();
+}
+
+function scheduleSip(sipId, freq) {
+  if (sipTimers[sipId]) clearInterval(sipTimers[sipId]);
+  sipTimers[sipId] = setInterval(() => executeSipInstallment(sipId), SIP_INTERVALS[freq]);
+}
+
+function toggleSip(sipId) {
+  const u = getUserData(currentUser);
+  const sip = (u.sips || []).find(s => s.id === sipId);
+  if (!sip) return;
+  sip.status = sip.status === 'active' ? 'paused' : 'active';
+  saveUserData(currentUser, u);
+  if (sip.status === 'active') scheduleSip(sipId, sip.freq);
+  else { clearInterval(sipTimers[sipId]); delete sipTimers[sipId]; }
+  showToast(`SIP ${sip.sym} ${sip.status === 'active' ? '▶ Resumed' : '⏸ Paused'}`, 'success');
+  renderSipPage();
+}
+
+function deleteSip(sipId) {
+  const u = getUserData(currentUser);
+  u.sips = (u.sips || []).filter(s => s.id !== sipId);
+  saveUserData(currentUser, u);
+  clearInterval(sipTimers[sipId]);
+  delete sipTimers[sipId];
+  showToast('SIP cancelled', 'error');
+  renderSipPage();
+}
+
+function triggerSipNow(sipId) {
+  executeSipInstallment(sipId);
+  showToast('Manual SIP installment triggered!', 'success');
+}
+
+function restoreSips() {
+  if (!currentUser) return;
+  const u = getUserData(currentUser);
+  (u.sips || []).filter(s => s.status === 'active').forEach(s => scheduleSip(s.id, s.freq));
+}
+
+function renderSipPage() {
+  const u = getUserData(currentUser);
+  const sips = u.sips || [];
+
+  // Stats
+  const totalInvested = sips.reduce((s, p) => s + p.totalInvested, 0);
+  const activeSips = sips.filter(s => s.status === 'active').length;
+  const totalInstallments = sips.reduce((s, p) => s + p.installments, 0);
+  document.getElementById('sipStats').innerHTML = `
+    <div class="stat-card"><div class="stat-label">Active SIPs</div><div class="stat-val" style="font-size:28px">${activeSips}</div><div class="stat-sub">${sips.length} total</div></div>
+    <div class="stat-card"><div class="stat-label">Total Invested via SIP</div><div class="stat-val" style="font-size:22px">₹${fmt(totalInvested)}</div><div class="stat-sub">across all SIPs</div></div>
+    <div class="stat-card"><div class="stat-label">Installments Done</div><div class="stat-val" style="font-size:28px">${totalInstallments}</div><div class="stat-sub">total auto-investments</div></div>`;
+
+  if (!sips.length) {
+    document.getElementById('sipList').innerHTML = `<div class="empty-state"><div class="icon">🔄</div><p>No SIPs yet. Click "New SIP" to start your first systematic investment!</p></div>`;
+    return;
+  }
+
+  document.getElementById('sipList').innerHTML = sips.map(sip => {
+    const curVal = prices[sip.sym] * sip.totalUnits;
+    const pnl = curVal - sip.totalInvested;
+    const pnlPct = sip.totalInvested > 0 ? (pnl / sip.totalInvested * 100).toFixed(2) : '0.00';
+    const dir = pnl >= 0;
+    const inst = INSTRUMENTS.find(i => i.sym === sip.sym);
+    const typeTag = inst?.type === 'ETF' ? 'tag-etf' : '';
+    return `<div class="sip-card">
+      <div class="sip-card-header">
+        <div>
+          <div style="font-size:16px;font-weight:700">${sip.sym} <span class="tag ${typeTag}">${inst?.type||''}</span></div>
+          <div style="font-size:12px;color:var(--text2);margin-top:2px">${sip.name}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="sip-badge ${sip.status === 'active' ? 'sip-active' : 'sip-paused'}">${sip.status === 'active' ? '● Active' : '⏸ Paused'}</span>
+          <span style="background:var(--bg3);padding:3px 8px;border-radius:6px;font-size:11px;color:var(--text2)">${SIP_LABELS[sip.freq]}</span>
+        </div>
+      </div>
+      <div class="sip-grid">
+        <div class="sip-stat"><div class="sip-stat-label">SIP Amount</div><div class="sip-stat-val">₹${fmt(sip.amount)}</div></div>
+        <div class="sip-stat"><div class="sip-stat-label">Invested</div><div class="sip-stat-val">₹${fmt(sip.totalInvested)}</div></div>
+        <div class="sip-stat"><div class="sip-stat-label">Current Value</div><div class="sip-stat-val" style="color:${dir?'var(--green)':'var(--red)'}">₹${fmt(curVal)}</div></div>
+        <div class="sip-stat"><div class="sip-stat-label">Returns</div><div class="sip-stat-val" style="color:${dir?'var(--green)':'var(--red)'}">${dir?'+':''}${pnlPct}%</div></div>
+        <div class="sip-stat"><div class="sip-stat-label">Units Held</div><div class="sip-stat-val">${sip.totalUnits.toFixed(4)}</div></div>
+        <div class="sip-stat"><div class="sip-stat-label">Avg Buy Price</div><div class="sip-stat-val">₹${fmt(sip.avgBuyPrice)}</div></div>
+        <div class="sip-stat"><div class="sip-stat-label">Current Price</div><div class="sip-stat-val">₹${fmt(prices[sip.sym])}</div></div>
+        <div class="sip-stat"><div class="sip-stat-label">Installments</div><div class="sip-stat-val">${sip.installments}</div></div>
+      </div>
+      <div class="sip-progress"><div class="sip-progress-fill" style="width:${Math.min(100,(sip.installments/10)*100)}%"></div></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button onclick="triggerSipNow(${sip.id})" style="padding:8px 14px;border-radius:8px;border:1px solid var(--blue);background:rgba(59,130,246,0.12);color:var(--blue);font-weight:700;font-size:12px;cursor:pointer;font-family:'Inter',sans-serif">▶ Invest Now</button>
+        <button onclick="toggleSip(${sip.id})" style="padding:8px 14px;border-radius:8px;border:1px solid ${sip.status==='active'?'var(--gold)':'var(--green)'};background:${sip.status==='active'?'rgba(245,158,11,0.12)':'rgba(0,208,156,0.12)'};color:${sip.status==='active'?'var(--gold)':'var(--green)'};font-weight:700;font-size:12px;cursor:pointer;font-family:'Inter',sans-serif">${sip.status==='active'?'⏸ Pause':'▶ Resume'}</button>
+        <button onclick="deleteSip(${sip.id})" style="padding:8px 14px;border-radius:8px;border:1px solid var(--red);background:rgba(255,77,109,0.1);color:var(--red);font-weight:700;font-size:12px;cursor:pointer;font-family:'Inter',sans-serif">✕ Cancel</button>
+        ${sip.history.length > 0 ? `<span style="padding:8px 14px;font-size:11px;color:var(--text3)">Last run: ${new Date(sip.lastRun).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})}</span>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ─── UPDATE showPage ──────────────────────────────────────────────────────────
+function showPage(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById(`page-${page}`).classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  const pages = ['home','explore','holdings','watchlist','news','sip','orders','leaderboard','learn'];
+  const btns = document.querySelectorAll('.nav-btn');
+  const idx = pages.indexOf(page);
+  if (btns[idx]) btns[idx].classList.add('active');
+  if (page === 'holdings') { renderPortfolio(); }
+  if (page === 'orders') renderHistory();
+  if (page === 'leaderboard') renderLeaderboard();
+  if (page === 'home') updateDashboard();
+  if (page === 'watchlist') renderWatchlist();
+  if (page === 'news') renderNews();
+  if (page === 'learn') renderLearn();
+  if (page === 'sip') renderSipPage();
+}
+
+// ─── BOOT ─────────────────────────────────────────────────────────────────────
+initPrices();
+updateTicker();
+updateMarketStatusChip();
+
+// Check session
+const savedSession = sessionStorage.getItem('sw_session');
+if (savedSession && getUsers()[savedSession]) {
+  currentUser = savedSession;
+  startApp();
+  requestNotificationPermission();
+  restoreSips();
+}
+
+// Price updates every 3 seconds
+priceInterval = setInterval(() => {
+  simulatePrices();
+  checkAlerts();
+  updateMarketStatusChip();
+}, 3000);
+
+// News event every 45 seconds
+newsInterval = setInterval(() => { if (currentUser) generateNewsEvent(); }, 45000);
+// Fire first news 5 seconds after page load
+setTimeout(() => { if (currentUser) generateNewsEvent(); }, 5000);
+
+// Close modals on overlay click
+document.getElementById('tradeModal').addEventListener('click', function(e) { if (e.target === this) closeModal(); });
+document.getElementById('chartModal').addEventListener('click', function(e) { if (e.target === this) closeChartModal(); });
+document.getElementById('alertModal').addEventListener('click', function(e) { if (e.target === this) closeAlertModal(); });
+document.getElementById('amoModal').addEventListener('click', function(e) { if (e.target === this) document.getElementById('amoModal').classList.add('hidden'); });
+document.getElementById('sipModal').addEventListener('click', function(e) { if (e.target === this) closeSipModal(); });
+</script>
+</body>
+</html>
