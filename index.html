@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>StockWave</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
 
@@ -704,7 +705,82 @@
 </div>
 
 <script>
-// ─── DATA ─────────────────────────────────────────────────────────────────────
+// ─── BACKEND API ──────────────────────────────────────────────────────────────
+const API = 'https://stockwave-production-baff.up.railway.app';
+let authToken = null;
+let socket = null;
+
+function connectSocket() {
+  socket = io(API);
+  socket.on('leaderboard-update', () => { if (document.getElementById('page-leaderboard').classList.contains('active')) renderLeaderboard(); });
+  socket.on('market-event', ({ mode }) => { handleMarketEvent(mode); });
+  socket.on('custom-news', (news) => { activeNews.unshift({...news, time: new Date()}); if (activeNews.length > 15) activeNews.pop(); showToast(`📰 ${news.title}`, news.impact === 'positive' ? 'success' : 'error'); if (document.getElementById('page-news').classList.contains('active')) renderNews(); });
+  socket.on('session-start', ({ endTime }) => { showSessionTimer(new Date(endTime)); });
+  socket.on('session-stop', () => { hideSessionTimer(); });
+  socket.on('force-refresh', () => { location.reload(); });
+}
+
+let sessionTimerInterval = null;
+function showSessionTimer(endTime) {
+  let chip = document.getElementById('sessionTimerChip');
+  if (!chip) {
+    chip = document.createElement('div');
+    chip.id = 'sessionTimerChip';
+    chip.style.cssText = 'position:fixed;top:50px;left:50%;transform:translateX(-50%);background:var(--blue);color:#fff;padding:6px 16px;border-radius:0 0 12px 12px;font-weight:700;font-size:13px;z-index:9999;font-family:JetBrains Mono,monospace';
+    document.body.appendChild(chip);
+  }
+  if (sessionTimerInterval) clearInterval(sessionTimerInterval);
+  sessionTimerInterval = setInterval(() => {
+    const rem = endTime - Date.now();
+    if (rem <= 0) { chip.textContent = '⏰ Session Ended!'; chip.style.background = 'var(--red)'; clearInterval(sessionTimerInterval); return; }
+    const m = Math.floor(rem/60000), s = Math.floor((rem%60000)/1000);
+    chip.textContent = `⏱ ${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')} remaining`;
+    if (rem < 60000) chip.style.background = 'var(--red)';
+    else if (rem < 300000) chip.style.background = 'var(--gold)';
+  }, 1000);
+}
+
+function hideSessionTimer() {
+  const chip = document.getElementById('sessionTimerChip');
+  if (chip) chip.remove();
+  if (sessionTimerInterval) clearInterval(sessionTimerInterval);
+}
+
+function handleMarketEvent(mode) {
+  const effects = { bull: 0.03, bear: -0.02, crash: -0.08, normal: 0 };
+  const effect = effects[mode] || 0;
+  if (mode === 'paused') { showToast('⏸ Teacher has paused trading!', 'error'); return; }
+  if (effect !== 0) {
+    INSTRUMENTS.forEach(inst => {
+      prices[inst.sym] = parseFloat((prices[inst.sym] * (1 + effect * (0.5 + Math.random()))).toFixed(2));
+    });
+    const labels = { bull:'🚀 Bull Run! All prices surging!', bear:'📉 Bear Market! Prices falling!', crash:'💥 Market Crash! Massive selloff!', normal:'✅ Market back to normal' };
+    showToast(labels[mode] || 'Market update!', effect > 0 ? 'success' : 'error');
+  }
+}
+
+// ─── API HELPERS ──────────────────────────────────────────────────────────────
+async function apiPost(path, body) {
+  const res = await fetch(`${API}${path}`, {
+    method:'POST', headers:{ 'Content-Type':'application/json', ...(authToken ? { Authorization:`Bearer ${authToken}` } : {}) },
+    body: JSON.stringify(body)
+  });
+  return res.json();
+}
+
+async function apiGet(path) {
+  const res = await fetch(`${API}${path}`, { headers: authToken ? { Authorization:`Bearer ${authToken}` } : {} });
+  return res.json();
+}
+
+async function saveUserToBackend() {
+  if (!authToken || !currentUser) return;
+  const u = getUserData(currentUser);
+  if (!u) return;
+  try {
+    await apiPost('/api/user/save', { cash: u.cash, holdings: u.holdings, trades: u.trades, sips: u.sips, alerts: u.alerts, watchlist: u.watchlist, amo: u.amo, portfolioHistory: u.portfolioHistory });
+  } catch(e) { console.log('Save failed:', e); }
+}
 // prevClose = yesterday's official closing price (realistic, slightly different from today's open)
 const INSTRUMENTS = [
   // NIFTY 50 EQUITIES
@@ -907,36 +983,51 @@ function switchAuthTab(tab) {
   document.getElementById('authMsg').textContent = '';
 }
 
-function register() {
+async function register() {
   const name = document.getElementById('regName').value.trim();
   const roll = document.getElementById('regRoll').value.trim().toUpperCase();
   const pass = document.getElementById('regPass').value;
   if (!name || !roll || !pass) return showAuthMsg('Please fill all fields', 'red');
-  const users = getUsers();
-  if (users[roll]) return showAuthMsg('Roll number already registered!', 'red');
-  users[roll] = {
-    name, roll, pass,
-    cash: STARTING_CAPITAL,
-    holdings: {},
-    trades: [],
-    portfolioHistory: [STARTING_CAPITAL],
-    joinedAt: new Date().toISOString()
-  };
-  saveUsers(users);
-  showAuthMsg('Account created! Please login.', 'var(--green)');
-  switchAuthTab('login');
-  document.getElementById('loginRoll').value = roll;
+  showAuthMsg('Creating account...', 'var(--text2)');
+  try {
+    const data = await apiPost('/api/register', { name, roll, password: pass });
+    if (data.error) return showAuthMsg(data.error, 'red');
+    authToken = data.token;
+    // Save to localStorage as cache
+    const users = getUsers();
+    users[roll] = { name, roll, pass, cash: 50000, holdings: {}, trades: [], sips: [], alerts: [], watchlist: [], amo: [], portfolioHistory: [50000], joinedAt: new Date().toISOString() };
+    saveUsers(users);
+    showAuthMsg('Account created! Please login.', 'var(--green)');
+    switchAuthTab('login');
+    document.getElementById('loginRoll').value = roll;
+  } catch(e) { showAuthMsg('Connection failed. Try again!', 'red'); }
 }
 
-function login() {
+async function login() {
   const roll = document.getElementById('loginRoll').value.trim().toUpperCase();
   const pass = document.getElementById('loginPass').value;
-  const users = getUsers();
-  if (!users[roll]) return showAuthMsg('Roll number not found!', 'red');
-  if (users[roll].pass !== pass) return showAuthMsg('Incorrect password!', 'red');
-  currentUser = roll;
-  sessionStorage.setItem('sw_session', roll);
-  startApp();
+  showAuthMsg('Logging in...', 'var(--text2)');
+  try {
+    const data = await apiPost('/api/login', { roll, password: pass });
+    if (data.error) return showAuthMsg(data.error, 'red');
+    authToken = data.token;
+    currentUser = roll;
+    // Sync from backend to localStorage
+    const users = getUsers();
+    users[roll] = { ...data.user, roll, pass };
+    saveUsers(users);
+    sessionStorage.setItem('sw_session', roll);
+    sessionStorage.setItem('sw_token', authToken);
+    startApp();
+  } catch(e) {
+    // Fallback to localStorage if backend is down
+    const users = getUsers();
+    if (!users[roll]) return showAuthMsg('Roll number not found!', 'red');
+    if (users[roll].pass !== pass) return showAuthMsg('Incorrect password!', 'red');
+    currentUser = roll;
+    sessionStorage.setItem('sw_session', roll);
+    startApp();
+  }
 }
 
 function logout() {
@@ -964,6 +1055,9 @@ function startApp() {
   renderMarketTable();
   renderLeaderboard();
   setTimeout(() => generateNewsEvent(), 4000);
+  connectSocket();
+  // Auto save to backend every 30 seconds
+  setInterval(saveUserToBackend, 30000);
 }
 
 // ─── NAV ──────────────────────────────────────────────────────────────────────
@@ -1274,6 +1368,7 @@ function executeTrade() {
   closeModal();
   showToast(`${currentTradeType === 'BUY' ? '🟢 Bought' : '🔴 Sold'} ${qty} × ${currentTradeSym} @ ₹${fmt(price)}`, 'success');
   updateDashboard();
+  saveUserToBackend();
 }
 
 // ─── HOLDINGS / PORTFOLIO GROWTH ──────────────────────────────────────────────
@@ -1595,45 +1690,53 @@ function renderHistory() {
 }
 
 // ─── LEADERBOARD ─────────────────────────────────────────────────────────────
-function renderLeaderboard() {
-  const users = getUsers();
-  const ranked = Object.values(users).map(u => {
-    const holdingsVal = Object.entries(u.holdings||{}).reduce((s,[sym,h])=>s+prices[sym]*h.qty, 0);
-    const total = (u.cash||0) + holdingsVal;
-    const ret = total - STARTING_CAPITAL;
-    const retPct = (ret / STARTING_CAPITAL * 100).toFixed(2);
-    return { ...u, total, ret, retPct };
-  }).sort((a, b) => b.total - a.total);
-
-  if (ranked.length === 0) {
-    document.getElementById('lbTable').innerHTML = `<div class="empty-state"><div class="icon">🏆</div><p>No students registered yet!</p></div>`;
-    return;
-  }
-
-  document.getElementById('lbTable').innerHTML = `<table>
-    <thead><tr><th>Rank</th><th>Student</th><th>Total Value</th><th>Returns</th><th>Trades</th></tr></thead>
-    <tbody>
-    ${ranked.map((u, i) => {
+async function renderLeaderboard() {
+  try {
+    let ranked = [];
+    if (authToken) {
+      const users = await apiGet('/api/leaderboard');
+      ranked = users.map(u => {
+        const holdingsVal = Object.entries(u.holdings||{}).reduce((s,[sym,h])=>s+(prices[sym]||0)*h.qty, 0);
+        const total = (u.cash||0) + holdingsVal;
+        const ret = total - STARTING_CAPITAL;
+        const retPct = (ret / STARTING_CAPITAL * 100).toFixed(2);
+        return { ...u, total, ret, retPct };
+      }).sort((a, b) => b.total - a.total);
+    } else {
+      const users = getUsers();
+      ranked = Object.values(users).map(u => {
+        const holdingsVal = Object.entries(u.holdings||{}).reduce((s,[sym,h])=>s+(prices[sym]||0)*h.qty, 0);
+        const total = (u.cash||0) + holdingsVal;
+        const ret = total - STARTING_CAPITAL;
+        const retPct = (ret / STARTING_CAPITAL * 100).toFixed(2);
+        return { ...u, total, ret, retPct };
+      }).sort((a, b) => b.total - a.total);
+    }
+    if (ranked.length === 0) {
+      document.getElementById('lbTable').innerHTML = '<div class="empty-state"><div class="icon">🏆</div><p>No students yet!</p></div>';
+      return;
+    }
+    const rows = ranked.map((u, i) => {
       const rank = i + 1;
-      const rankClass = rank <= 3 ? `rank-${rank}` : 'rank-other';
+      const medals = ['🥇','🥈','🥉'];
+      const rankBadge = rank <= 3 ? medals[rank-1] : rank;
       const isYou = u.roll === currentUser;
-      return `<tr class="${isYou ? 'lb-you' : ''}">
-        <td><div class="rank-badge ${rankClass}">${rank <= 3 ? ['🥇','🥈','🥉'][rank-1] : rank}</div></td>
-        <td>
-          <div style="font-weight:700">${u.name} ${isYou ? '<span style="background:var(--blue);color:#fff;padding:2px 6px;border-radius:4px;font-size:10px">YOU</span>' : ''}</div>
-          <div style="font-size:11px;color:var(--text2)">${u.roll}</div>
-        </td>
-        <td style="font-family:'JetBrains Mono',monospace;font-weight:700">₹${fmt(u.total)}</td>
-        <td>
-          <div style="color:${u.ret>=0?'var(--green)':'var(--red)'};font-weight:700">${u.ret>=0?'+':''}₹${fmt(Math.abs(u.ret))}</div>
-          <div style="font-size:11px;color:${u.ret>=0?'var(--green)':'var(--red)'}">${u.ret>=0?'▲':'▼'}${Math.abs(u.retPct)}%</div>
-        </td>
-        <td style="color:var(--text2)">${(u.trades||[]).length}</td>
-      </tr>`;
-    }).join('')}
-    </tbody>
-  </table>`;
+      const youBadge = isYou ? '<span style="background:var(--blue);color:#fff;padding:2px 6px;border-radius:4px;font-size:10px">YOU</span>' : '';
+      const retColor = u.ret >= 0 ? 'var(--green)' : 'var(--red)';
+      const retSign = u.ret >= 0 ? '+' : '';
+      const arrow = u.ret >= 0 ? '▲' : '▼';
+      return '<tr class="' + (isYou ? 'lb-you' : '') + '">' +
+        '<td><div class="rank-badge ' + (rank <= 3 ? 'rank-' + rank : 'rank-other') + '">' + rankBadge + '</div></td>' +
+        '<td><div style="font-weight:700">' + u.name + ' ' + youBadge + '</div><div style="font-size:11px;color:var(--text2)">' + u.roll + '</div></td>' +
+        '<td style="font-family:JetBrains Mono,monospace;font-weight:700">₹' + fmt(u.total) + '</td>' +
+        '<td><div style="color:' + retColor + ';font-weight:700">' + retSign + '₹' + fmt(Math.abs(u.ret)) + '</div>' +
+        '<div style="font-size:11px;color:' + retColor + '">' + arrow + Math.abs(u.retPct) + '%</div></td>' +
+        '<td style="color:var(--text2)">' + (u.trades||[]).length + '</td></tr>';
+    }).join('');
+    document.getElementById('lbTable').innerHTML = '<table><thead><tr><th>Rank</th><th>Student</th><th>Total Value</th><th>Returns</th><th>Trades</th></tr></thead><tbody>' + rows + '</tbody></table>';
+  } catch(e) { console.log('Leaderboard error:', e); }
 }
+
 
 // ─── UTILS ────────────────────────────────────────────────────────────────────
 function fmt(n) {
@@ -1654,8 +1757,6 @@ function getMarketStatus() {
   const now = new Date();
   const h = now.getHours(), m = now.getMinutes();
   const mins = h * 60 + m;
-  const day = now.getDay();
-  if (day === 0 || day === 6) return 'closed';
   if (mins >= 9*60 && mins < 9*60+15) return 'pre';
   if (mins >= 9*60+15 && mins < 15*60+30) return 'open';
   return 'closed';
@@ -2374,8 +2475,10 @@ updateMarketStatusChip();
 
 // Check session
 const savedSession = sessionStorage.getItem('sw_session');
+const savedToken = sessionStorage.getItem('sw_token');
 if (savedSession && getUsers()[savedSession]) {
   currentUser = savedSession;
+  authToken = savedToken || null;
   startApp();
   requestNotificationPermission();
   restoreSips();
@@ -2388,10 +2491,10 @@ priceInterval = setInterval(() => {
   updateMarketStatusChip();
 }, 3000);
 
-// News event every 45 seconds
-newsInterval = setInterval(() => { if (currentUser) generateNewsEvent(); }, 45000);
-// Fire first news 5 seconds after page load
-setTimeout(() => { if (currentUser) generateNewsEvent(); }, 5000);
+// News event every 20 seconds
+newsInterval = setInterval(() => { if (currentUser) generateNewsEvent(); }, 20000);
+// Fire first news 3 seconds after login
+setTimeout(() => { if (currentUser) generateNewsEvent(); }, 3000);
 
 // Close modals on overlay click
 document.getElementById('tradeModal').addEventListener('click', function(e) { if (e.target === this) closeModal(); });
