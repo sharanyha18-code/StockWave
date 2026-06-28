@@ -328,7 +328,7 @@ function renderStudents(students) {
       <td style="font-family:monospace;font-weight:700">₹${fmt(u.total)}</td>
       <td style="color:${dir?'var(--green)':'var(--red)'};font-weight:700">${dir?'+':''}₹${fmt(Math.abs(u.ret))}</td>
       <td>${(u.trades||[]).length}</td>
-      <td><button class="btn-sm" style="background:rgba(255,77,109,0.15);color:var(--red);border:1px solid var(--red)" onclick="resetStudent('${u.roll}','${u.name}')">Reset</button></td>
+      <td><button class="btn-sm" style="background:rgba(255,77,109,0.15);color:var(--red);border:1px solid var(--red)" onclick="resetStudent('${u.roll}','${u.name}')">Reset</button> <button class="btn-sm" style="background:var(--red);color:#fff;margin-left:4px" onclick="deleteStudent('${u.roll}','${u.name}')">🗑️ Delete</button></td>
     </tr>`;
   }).join('') || '<tr><td colspan="9" style="text-align:center;color:var(--text3);padding:24px">No students yet</td></tr>';
 }
@@ -433,6 +433,17 @@ async function injectNews() {
 }
 
 // ─── RESET ────────────────────────────────────────────────────────────────────
+async function deleteStudent(roll, name) {
+  if (!confirm(`⚠️ Permanently DELETE ${name}'s account? This cannot be undone!`)) return;
+  try {
+    await fetch(`${API}/api/admin/student/${roll}`, {
+      method:'DELETE', headers:{ Authorization:`Bearer ${adminToken}` }
+    });
+    showToast(`🗑️ ${name}'s account deleted!`, 'success');
+    loadStudents();
+  } catch(e) { showToast('Failed to delete','error'); }
+}
+
 async function resetStudent(roll, name) {
   if (!confirm(`Reset ${name}'s portfolio to ₹50,000?`)) return;
   try {
