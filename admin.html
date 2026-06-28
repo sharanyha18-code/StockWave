@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StockWave — Teacher Admin</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+  :root {
+    --bg:#0a0e1a;--bg2:#111827;--bg3:#1a2235;--card:#141d2e;--border:#1f2e45;
+    --green:#00d09c;--red:#ff4d6d;--blue:#3b82f6;--gold:#f59e0b;--purple:#8b5cf6;
+    --text:#e8edf5;--text2:#8fa3bf;--text3:#4a6080;
+  }
+  * { margin:0;padding:0;box-sizing:border-box; }
+  body { background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-height:100vh; }
+
+  /* LOGIN */
+  .login-page { display:flex;align-items:center;justify-content:center;min-height:100vh; }
+  .login-card { background:var(--card);border:1px solid var(--border);border-radius:20px;padding:40px;width:360px; }
+  .login-title { font-size:24px;font-weight:800;margin-bottom:4px; }
+  .login-sub { color:var(--text2);font-size:13px;margin-bottom:28px; }
+  .inp { width:100%;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px 14px;color:var(--text);font-size:14px;font-family:'Inter',sans-serif;outline:none;margin-bottom:12px; }
+  .btn { width:100%;padding:13px;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif; }
+  .btn-green { background:linear-gradient(135deg,var(--green),#00a878);color:#000; }
+  .btn-red { background:linear-gradient(135deg,var(--red),#cc3355);color:#fff; }
+  .btn-blue { background:linear-gradient(135deg,var(--blue),#2563eb);color:#fff; }
+  .btn-gold { background:linear-gradient(135deg,var(--gold),#d97706);color:#000; }
+  .btn-sm { padding:7px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:none;font-family:'Inter',sans-serif; }
+  .err { color:var(--red);font-size:13px;margin-top:8px;text-align:center;min-height:20px; }
+
+  /* ADMIN APP */
+  .admin-app { display:none; }
+  .topbar { background:var(--bg2);border-bottom:1px solid var(--border);padding:0 24px;height:60px;display:flex;align-items:center;justify-content:space-between; }
+  .logo { font-size:20px;font-weight:800;background:linear-gradient(135deg,var(--gold),var(--red));-webkit-background-clip:text;-webkit-text-fill-color:transparent; }
+  .admin-badge { background:rgba(245,158,11,0.15);color:var(--gold);padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700; }
+  .content { padding:24px;max-width:1200px;margin:0 auto; }
+
+  /* STATS */
+  .stats-row { display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px; }
+  .stat-card { background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px; }
+  .stat-label { font-size:11px;color:var(--text2);font-weight:600;letter-spacing:0.8px;text-transform:uppercase;margin-bottom:8px; }
+  .stat-val { font-size:28px;font-weight:800; }
+
+  /* CONTROLS */
+  .controls-grid { display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px; }
+  .card { background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px; }
+  .card-title { font-size:12px;color:var(--text2);font-weight:700;letter-spacing:0.8px;text-transform:uppercase;margin-bottom:16px; }
+  .mkt-btns { display:grid;grid-template-columns:1fr 1fr;gap:8px; }
+  .mkt-btn { padding:12px;border-radius:10px;border:none;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;transition:opacity 0.2s; }
+  .mkt-btn:hover { opacity:0.85; }
+  .mkt-normal { background:rgba(0,208,156,0.15);color:var(--green);border:1px solid var(--green); }
+  .mkt-bull { background:rgba(0,208,156,0.2);color:var(--green);border:1px solid var(--green); }
+  .mkt-bear { background:rgba(245,158,11,0.2);color:var(--gold);border:1px solid var(--gold); }
+  .mkt-crash { background:rgba(255,77,109,0.2);color:var(--red);border:1px solid var(--red); }
+  .mkt-pause { background:rgba(139,92,246,0.2);color:var(--purple);border:1px solid var(--purple); }
+  .active-mode { box-shadow:0 0 0 2px currentColor; }
+
+  /* SESSION */
+  .timer-display { font-size:40px;font-weight:800;font-family:'JetBrains Mono',monospace;text-align:center;margin:12px 0;color:var(--green); }
+  .timer-display.warning { color:var(--gold); }
+  .timer-display.danger { color:var(--red); }
+  .time-btns { display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px; }
+  .time-btn { padding:7px 14px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);font-size:12px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif; }
+  .time-btn.active { border-color:var(--blue);background:rgba(59,130,246,0.15);color:var(--blue); }
+
+  /* NEWS */
+  .news-form { display:flex;flex-direction:column;gap:10px; }
+  .news-form input, .news-form textarea, .news-form select { background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px 14px;color:var(--text);font-size:13px;font-family:'Inter',sans-serif;outline:none;width:100%; }
+  .news-form textarea { resize:vertical;min-height:80px; }
+  .syms-input { display:flex;gap:8px;flex-wrap:wrap;margin-top:4px; }
+  .sym-chip { background:var(--bg3);border-radius:6px;padding:3px 8px;font-size:11px;color:var(--text2);cursor:pointer;border:1px solid var(--border); }
+  .sym-chip.active { background:rgba(59,130,246,0.15);color:var(--blue);border-color:var(--blue); }
+
+  /* STUDENTS TABLE */
+  .students-card { background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden;margin-bottom:24px; }
+  .table-header { display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--border); }
+  table { width:100%;border-collapse:collapse; }
+  th { padding:12px 20px;text-align:left;font-size:11px;color:var(--text3);font-weight:600;letter-spacing:0.8px;text-transform:uppercase;background:var(--bg2);border-bottom:1px solid var(--border); }
+  td { padding:14px 20px;font-size:13px;border-bottom:1px solid rgba(31,46,69,0.5); }
+  tr:last-child td { border-bottom:none; }
+  tr:hover td { background:var(--bg3); }
+  .rank-1 td:first-child { color:var(--gold);font-weight:800; }
+  .rank-2 td:first-child { color:#9ca3af;font-weight:800; }
+  .rank-3 td:first-child { color:#b45309;font-weight:800; }
+  .search-bar { background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:8px 14px;display:flex;align-items:center;gap:8px; }
+  .search-bar input { background:none;border:none;color:var(--text);font-size:13px;font-family:'Inter',sans-serif;outline:none;width:200px; }
+
+  /* TOAST */
+  .toast { position:fixed;bottom:24px;right:24px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 20px;font-size:14px;z-index:9999;transform:translateY(100px);opacity:0;transition:all 0.3s;max-width:320px; }
+  .toast.show { transform:translateY(0);opacity:1; }
+  .toast.success { border-left:3px solid var(--green); }
+  .toast.error { border-left:3px solid var(--red); }
+
+  /* MARKET STATUS BAR */
+  .market-bar { display:flex;align-items:center;gap:12px; }
+  .mode-chip { padding:5px 12px;border-radius:8px;font-size:12px;font-weight:700; }
+
+  @media(max-width:768px) {
+    .stats-row { grid-template-columns:1fr 1fr; }
+    .controls-grid { grid-template-columns:1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div class="login-page" id="loginPage">
+  <div class="login-card">
+    <div class="login-title">🎓 Teacher Panel</div>
+    <div class="login-sub">StockWave Admin — Students can't see this!</div>
+    <input class="inp" type="password" id="adminPass" placeholder="Admin password" onkeydown="if(event.key==='Enter')adminLogin()">
+    <button class="btn btn-gold" onclick="adminLogin()">Login as Teacher →</button>
+    <div class="err" id="loginErr"></div>
+  </div>
+</div>
+
+<!-- ADMIN APP -->
+<div class="admin-app" id="adminApp">
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:12px">
+      <div class="logo">⚡ StockWave Admin</div>
+      <span class="admin-badge">TEACHER MODE</span>
+    </div>
+    <div class="market-bar">
+      <span style="font-size:12px;color:var(--text2)">Market Mode:</span>
+      <span class="mode-chip" id="modeChip">Normal</span>
+      <span id="sessionChip" style="display:none;background:rgba(59,130,246,0.15);color:var(--blue);padding:5px 12px;border-radius:8px;font-size:12px;font-weight:700"></span>
+      <button class="btn-sm btn-red" onclick="adminLogout()">Logout</button>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- STATS -->
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-label">Total Students</div>
+        <div class="stat-val" id="statStudents">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Total Trades</div>
+        <div class="stat-val" id="statTrades">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Top Portfolio</div>
+        <div class="stat-val" style="font-size:20px" id="statTop">₹0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Avg Portfolio</div>
+        <div class="stat-val" style="font-size:20px" id="statAvg">₹0</div>
+      </div>
+    </div>
+
+    <!-- CONTROLS -->
+    <div class="controls-grid">
+
+      <!-- MARKET CONTROLS -->
+      <div class="card">
+        <div class="card-title">🎮 Market Controls</div>
+        <div class="mkt-btns">
+          <button class="mkt-btn mkt-normal" onclick="setMarket('normal')">✅ Normal Market</button>
+          <button class="mkt-btn mkt-bull" onclick="setMarket('bull')">🚀 Bull Run (+3%)</button>
+          <button class="mkt-btn mkt-bear" onclick="setMarket('bear')">📉 Bear Market (-2%)</button>
+          <button class="mkt-btn mkt-crash" onclick="setMarket('crash')">💥 Market Crash (-8%)</button>
+          <button class="mkt-btn mkt-pause" onclick="setMarket('paused')" style="grid-column:span 2">⏸ Pause All Trading</button>
+        </div>
+        <div style="margin-top:12px;font-size:12px;color:var(--text2)">Current: <span id="currentMode" style="color:var(--green);font-weight:700">Normal</span></div>
+      </div>
+
+      <!-- SESSION TIMER -->
+      <div class="card">
+        <div class="card-title">⏱️ Session Timer</div>
+        <div class="timer-display" id="timerDisplay">--:--</div>
+        <div class="time-btns">
+          <button class="time-btn" onclick="selectTime(15,this)">15 min</button>
+          <button class="time-btn" onclick="selectTime(20,this)">20 min</button>
+          <button class="time-btn" onclick="selectTime(30,this)">30 min</button>
+          <button class="time-btn" onclick="selectTime(45,this)">45 min</button>
+          <button class="time-btn" onclick="selectTime(60,this)">60 min</button>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-green" style="flex:1;padding:10px" onclick="startSession()">▶ Start Session</button>
+          <button class="btn btn-red" style="flex:1;padding:10px" onclick="stopSession()">⏹ Stop</button>
+        </div>
+      </div>
+
+      <!-- CUSTOM NEWS -->
+      <div class="card">
+        <div class="card-title">📰 Inject Custom News</div>
+        <div class="news-form">
+          <input type="text" id="newsTitle" placeholder="Headline (e.g. RBI cuts rates by 25bps!)">
+          <textarea id="newsBody" placeholder="News body — 2-3 sentences..."></textarea>
+          <select id="newsImpact">
+            <option value="positive">📈 Positive (prices go UP)</option>
+            <option value="negative">📉 Negative (prices go DOWN)</option>
+            <option value="neutral">ℹ️ Neutral</option>
+          </select>
+          <input type="number" id="newsEffect" placeholder="Effect % (e.g. 2 for +2%, -3 for -3%)" step="0.5">
+          <input type="text" id="newsSyms" placeholder="Affected stocks (e.g. RELIANCE,TCS,INFY)">
+          <button class="btn btn-blue" onclick="injectNews()">📡 Send to All Students</button>
+        </div>
+      </div>
+
+      <!-- RESET CONTROLS -->
+      <div class="card">
+        <div class="card-title">⚙️ Controls</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <button class="btn btn-blue" onclick="loadStudents();showToast('Refreshed!','success')">🔄 Refresh Data</button>
+          <button class="btn btn-gold" onclick="exportCSV()">📥 Export Leaderboard CSV</button>
+          <button class="btn btn-red" onclick="resetAll()" style="margin-top:8px">🔄 Reset ALL Portfolios</button>
+          <div style="font-size:11px;color:var(--text3);text-align:center">⚠️ Reset gives everyone ₹50,000 fresh start</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- STUDENTS TABLE -->
+    <div class="students-card">
+      <div class="table-header">
+        <div style="font-size:15px;font-weight:700">👥 All Students</div>
+        <div style="display:flex;gap:10px;align-items:center">
+          <div class="search-bar">
+            <span>🔍</span>
+            <input type="text" placeholder="Search student..." id="searchStudent" oninput="filterStudents()">
+          </div>
+        </div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Rank</th>
+            <th>Name</th>
+            <th>Roll No</th>
+            <th>Cash</th>
+            <th>Holdings</th>
+            <th>Total Value</th>
+            <th>P&L</th>
+            <th>Trades</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="studentsBody"></tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const API = window.location.origin;
+let adminToken = null;
+let allStudents = [];
+let selectedTime = 30;
+let sessionTimer = null;
+let sessionEnd = null;
+let currentPrices = {};
+
+// ─── LOGIN ────────────────────────────────────────────────────────────────────
+async function adminLogin() {
+  const pass = document.getElementById('adminPass').value;
+  try {
+    const res = await fetch(`${API}/api/admin/login`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ password: pass })
+    });
+    const data = await res.json();
+    if (!res.ok) { document.getElementById('loginErr').textContent = data.error; return; }
+    adminToken = data.token;
+    document.getElementById('loginPage').style.display = 'none';
+    document.getElementById('adminApp').style.display = 'block';
+    loadStudents();
+    connectSocket();
+    startTimerTick();
+  } catch(e) {
+    document.getElementById('loginErr').textContent = 'Connection failed — check backend URL';
+  }
+}
+
+function adminLogout() {
+  adminToken = null;
+  document.getElementById('loginPage').style.display = 'flex';
+  document.getElementById('adminApp').style.display = 'none';
+}
+
+// ─── SOCKET ───────────────────────────────────────────────────────────────────
+function connectSocket() {
+  const socket = io(API);
+  socket.on('leaderboard-update', loadStudents);
+  socket.on('session-start', ({ endTime }) => { sessionEnd = new Date(endTime); });
+  socket.on('session-stop', () => { sessionEnd = null; document.getElementById('timerDisplay').textContent = '--:--'; });
+}
+
+// ─── LOAD STUDENTS ────────────────────────────────────────────────────────────
+async function loadStudents() {
+  try {
+    const res = await fetch(`${API}/api/admin/students`, { headers:{ Authorization:`Bearer ${adminToken}` } });
+    const data = await res.json();
+    allStudents = data.map(u => {
+      const holdVal = Object.entries(u.holdings||{}).reduce((s,[sym,h]) => s + (h.avgPrice||0)*h.qty, 0);
+      return { ...u, holdVal, total: u.cash + holdVal, ret: (u.cash + holdVal) - 50000 };
+    }).sort((a,b) => b.total - a.total);
+    updateStats();
+    renderStudents(allStudents);
+  } catch(e) { showToast('Failed to load students','error'); }
+}
+
+function updateStats() {
+  document.getElementById('statStudents').textContent = allStudents.length;
+  document.getElementById('statTrades').textContent = allStudents.reduce((s,u)=>(s+(u.trades||[]).length),0);
+  const top = allStudents[0]?.total || 0;
+  const avg = allStudents.length ? allStudents.reduce((s,u)=>s+u.total,0)/allStudents.length : 0;
+  document.getElementById('statTop').textContent = `₹${fmt(top)}`;
+  document.getElementById('statAvg').textContent = `₹${fmt(avg)}`;
+}
+
+function renderStudents(students) {
+  document.getElementById('studentsBody').innerHTML = students.map((u,i) => {
+    const dir = u.ret >= 0;
+    return `<tr class="${i<3?'rank-'+(i+1):''}">
+      <td style="font-weight:800">${i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}</td>
+      <td style="font-weight:600">${u.name}</td>
+      <td style="color:var(--text2)">${u.roll}</td>
+      <td style="font-family:monospace">₹${fmt(u.cash)}</td>
+      <td style="font-family:monospace">₹${fmt(u.holdVal)}</td>
+      <td style="font-family:monospace;font-weight:700">₹${fmt(u.total)}</td>
+      <td style="color:${dir?'var(--green)':'var(--red)'};font-weight:700">${dir?'+':''}₹${fmt(Math.abs(u.ret))}</td>
+      <td>${(u.trades||[]).length}</td>
+      <td><button class="btn-sm" style="background:rgba(255,77,109,0.15);color:var(--red);border:1px solid var(--red)" onclick="resetStudent('${u.roll}','${u.name}')">Reset</button></td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="9" style="text-align:center;color:var(--text3);padding:24px">No students yet</td></tr>';
+}
+
+function filterStudents() {
+  const q = document.getElementById('searchStudent').value.toLowerCase();
+  renderStudents(allStudents.filter(u => u.name.toLowerCase().includes(q) || u.roll.toLowerCase().includes(q)));
+}
+
+// ─── MARKET CONTROLS ──────────────────────────────────────────────────────────
+async function setMarket(mode) {
+  try {
+    await fetch(`${API}/api/admin/market`, {
+      method:'POST', headers:{ Authorization:`Bearer ${adminToken}`, 'Content-Type':'application/json' },
+      body: JSON.stringify({ mode })
+    });
+    document.getElementById('currentMode').textContent = mode.charAt(0).toUpperCase() + mode.slice(1);
+    const colors = { normal:'var(--green)', bull:'var(--green)', bear:'var(--gold)', crash:'var(--red)', paused:'var(--purple)' };
+    document.getElementById('currentMode').style.color = colors[mode];
+    const labels = { normal:'🟢 Normal', bull:'🚀 Bull Run', bear:'📉 Bear Market', crash:'💥 Crash!', paused:'⏸ Paused' };
+    const chip = document.getElementById('modeChip');
+    chip.textContent = labels[mode];
+    chip.style.background = `${colors[mode]}22`;
+    chip.style.color = colors[mode];
+    showToast(`Market set to ${mode.toUpperCase()}! All students affected.`, 'success');
+  } catch(e) { showToast('Failed','error'); }
+}
+
+// ─── SESSION TIMER ────────────────────────────────────────────────────────────
+function selectTime(mins, btn) {
+  selectedTime = mins;
+  document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+async function startSession() {
+  try {
+    await fetch(`${API}/api/admin/session`, {
+      method:'POST', headers:{ Authorization:`Bearer ${adminToken}`, 'Content-Type':'application/json' },
+      body: JSON.stringify({ minutes: selectedTime })
+    });
+    sessionEnd = new Date(Date.now() + selectedTime * 60 * 1000);
+    showToast(`⏱ ${selectedTime}-minute session started!`, 'success');
+    const chip = document.getElementById('sessionChip');
+    chip.style.display = 'inline';
+    chip.textContent = `Session: ${selectedTime}min`;
+  } catch(e) { showToast('Failed','error'); }
+}
+
+async function stopSession() {
+  try {
+    await fetch(`${API}/api/admin/session/stop`, {
+      method:'POST', headers:{ Authorization:`Bearer ${adminToken}`, 'Content-Type':'application/json' }
+    });
+    sessionEnd = null;
+    document.getElementById('timerDisplay').textContent = '--:--';
+    document.getElementById('sessionChip').style.display = 'none';
+    showToast('Session stopped!', 'success');
+  } catch(e) { showToast('Failed','error'); }
+}
+
+function startTimerTick() {
+  setInterval(() => {
+    if (!sessionEnd) return;
+    const remaining = sessionEnd - Date.now();
+    const el = document.getElementById('timerDisplay');
+    if (remaining <= 0) {
+      el.textContent = '00:00';
+      el.className = 'timer-display danger';
+      sessionEnd = null;
+      showToast('⏰ Session ended!', 'success');
+      return;
+    }
+    const mins = Math.floor(remaining / 60000);
+    const secs = Math.floor((remaining % 60000) / 1000);
+    el.textContent = `${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
+    el.className = `timer-display ${remaining < 60000 ? 'danger' : remaining < 300000 ? 'warning' : ''}`;
+  }, 1000);
+}
+
+// ─── NEWS ─────────────────────────────────────────────────────────────────────
+async function injectNews() {
+  const title = document.getElementById('newsTitle').value.trim();
+  const body = document.getElementById('newsBody').value.trim();
+  const impact = document.getElementById('newsImpact').value;
+  const effectVal = parseFloat(document.getElementById('newsEffect').value) || 0;
+  const symsRaw = document.getElementById('newsSyms').value.trim();
+  if (!title || !body) return showToast('Fill title and body!', 'error');
+  const syms = symsRaw ? symsRaw.toUpperCase().split(',').map(s=>s.trim()) : [];
+  const effect = effectVal / 100;
+  try {
+    await fetch(`${API}/api/admin/news`, {
+      method:'POST', headers:{ Authorization:`Bearer ${adminToken}`, 'Content-Type':'application/json' },
+      body: JSON.stringify({ title, body, impact, syms, effect })
+    });
+    showToast('📡 News sent to all students!', 'success');
+    document.getElementById('newsTitle').value = '';
+    document.getElementById('newsBody').value = '';
+    document.getElementById('newsSyms').value = '';
+    document.getElementById('newsEffect').value = '';
+  } catch(e) { showToast('Failed','error'); }
+}
+
+// ─── RESET ────────────────────────────────────────────────────────────────────
+async function resetStudent(roll, name) {
+  if (!confirm(`Reset ${name}'s portfolio to ₹50,000?`)) return;
+  try {
+    await fetch(`${API}/api/admin/reset/${roll}`, {
+      method:'POST', headers:{ Authorization:`Bearer ${adminToken}` }
+    });
+    showToast(`✅ ${name}'s portfolio reset!`, 'success');
+    loadStudents();
+  } catch(e) { showToast('Failed','error'); }
+}
+
+async function resetAll() {
+  if (!confirm('⚠️ Reset ALL student portfolios to ₹50,000? This cannot be undone!')) return;
+  try {
+    await fetch(`${API}/api/admin/reset-all`, {
+      method:'POST', headers:{ Authorization:`Bearer ${adminToken}` }
+    });
+    showToast('✅ All portfolios reset!', 'success');
+    loadStudents();
+  } catch(e) { showToast('Failed','error'); }
+}
+
+// ─── EXPORT ───────────────────────────────────────────────────────────────────
+function exportCSV() {
+  window.open(`${API}/api/admin/export?token=${adminToken}`);
+}
+
+// ─── UTILS ────────────────────────────────────────────────────────────────────
+function fmt(n) {
+  if (!n) return '0.00';
+  if (n >= 100000) return (n/100000).toFixed(2)+'L';
+  return n.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+
+function showToast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast ${type} show`;
+  setTimeout(() => t.className = 'toast', 3000);
+}
+</script>
+</body>
+</html>
