@@ -248,9 +248,9 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="/socket.io/socket.io.js"></script>
+<script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
 <script>
-const API = window.location.origin;
+const API = 'https://stockwave-production-baff.up.railway.app';
 let adminToken = null;
 let allStudents = [];
 let selectedTime = 30;
@@ -272,7 +272,7 @@ async function adminLogin() {
     document.getElementById('loginPage').style.display = 'none';
     document.getElementById('adminApp').style.display = 'block';
     loadStudents();
-    connectSocket();
+    try { connectSocket(); } catch(e) { console.log('Socket optional:', e); }
     startTimerTick();
   } catch(e) {
     document.getElementById('loginErr').textContent = 'Connection failed — check backend URL';
