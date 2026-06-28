@@ -1,5 +1,3 @@
-
-Server · JS
 const express = require('express');
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
@@ -7,8 +5,14 @@ const jwt = require('jsonwebtoken');
 const cors = require('cors');
 const http = require('http');
 const { Server } = require('socket.io');
-require('dotenv').config();
- 
+try { require('dotenv').config(); } catch(e) {}
+
+// Environment variables with fallbacks
+const MONGODB_URI = MONGODB_URI;
+const JWT_SECRET = JWT_SECRET || 'stockwave_secret';
+const ADMIN_PASSWORD = ADMIN_PASSWORD || 'stockwave@123';
+const PORT = PORT || 3000;
+
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { 
@@ -17,18 +21,18 @@ const io = new Server(server, {
     methods: ['GET', 'POST']
   } 
 });
- 
+
 app.use(cors({
   origin: ['https://sharanyha18-code.github.io', 'http://localhost:3000', '*'],
   credentials: true
 }));
 app.use(express.json());
- 
+
 // ─── MONGODB CONNECTION ───────────────────────────────────────────────────────
-mongoose.connect(process.env.MONGODB_URI)
+mongoose.connect(MONGODB_URI)
   .then(() => console.log('✅ MongoDB connected'))
   .catch(err => console.error('❌ MongoDB error:', err));
- 
+
 // ─── SCHEMAS ──────────────────────────────────────────────────────────────────
 const userSchema = new mongoose.Schema({
   name: String,
@@ -44,32 +48,32 @@ const userSchema = new mongoose.Schema({
   portfolioHistory: { type: Array, default: [50000] },
   createdAt: { type: Date, default: Date.now }
 });
- 
+
 const User = mongoose.model('User', userSchema);
- 
+
 const settingsSchema = new mongoose.Schema({
   key: { type: String, unique: true },
   value: mongoose.Schema.Types.Mixed
 });
 const Settings = mongoose.model('Settings', settingsSchema);
- 
+
 // ─── MIDDLEWARE ───────────────────────────────────────────────────────────────
 const auth = (req, res, next) => {
   const token = req.headers.authorization?.split(' ')[1];
   if (!token) return res.status(401).json({ error: 'No token' });
   try {
-    req.user = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = jwt.verify(token, JWT_SECRET);
     next();
   } catch {
     res.status(401).json({ error: 'Invalid token' });
   }
 };
- 
+
 const adminAuth = (req, res, next) => {
   const token = req.headers.authorization?.split(' ')[1];
   if (!token) return res.status(401).json({ error: 'No token' });
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, JWT_SECRET);
     if (!decoded.isAdmin) return res.status(403).json({ error: 'Not admin' });
     req.user = decoded;
     next();
@@ -77,7 +81,7 @@ const adminAuth = (req, res, next) => {
     res.status(401).json({ error: 'Invalid token' });
   }
 };
- 
+
 // ─── MARKET STATE ─────────────────────────────────────────────────────────────
 let marketState = {
   mode: 'normal', // normal | bull | bear | crash | paused
@@ -85,7 +89,7 @@ let marketState = {
   sessionEndTime: null,
   customNews: null
 };
- 
+
 // ─── AUTH ROUTES ──────────────────────────────────────────────────────────────
 // Register
 app.post('/api/register', async (req, res) => {
@@ -98,13 +102,13 @@ app.post('/api/register', async (req, res) => {
     const hashed = await bcrypt.hash(password, 10);
     const user = new User({ name, roll: roll.toUpperCase(), password: hashed });
     await user.save();
-    const token = jwt.sign({ id: user._id, roll: user.roll, name: user.name }, process.env.JWT_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign({ id: user._id, roll: user.roll, name: user.name }, JWT_SECRET, { expiresIn: '7d' });
     res.json({ token, user: { name: user.name, roll: user.roll, cash: user.cash } });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
- 
+
 // Login
 app.post('/api/login', async (req, res) => {
   try {
@@ -113,22 +117,22 @@ app.post('/api/login', async (req, res) => {
     if (!user) return res.status(400).json({ error: 'Roll number not found!' });
     const match = await bcrypt.compare(password, user.password);
     if (!match) return res.status(400).json({ error: 'Incorrect password!' });
-    const token = jwt.sign({ id: user._id, roll: user.roll, name: user.name }, process.env.JWT_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign({ id: user._id, roll: user.roll, name: user.name }, JWT_SECRET, { expiresIn: '7d' });
     res.json({ token, user: { name: user.name, roll: user.roll, cash: user.cash, holdings: user.holdings, trades: user.trades, sips: user.sips, alerts: user.alerts, watchlist: user.watchlist, amo: user.amo, portfolioHistory: user.portfolioHistory } });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
- 
+
 // Admin login
 app.post('/api/admin/login', (req, res) => {
   const { password } = req.body;
-  if (password !== process.env.ADMIN_PASSWORD)
+  if (password !== ADMIN_PASSWORD)
     return res.status(401).json({ error: 'Invalid admin password' });
-  const token = jwt.sign({ isAdmin: true }, process.env.JWT_SECRET, { expiresIn: '1d' });
+  const token = jwt.sign({ isAdmin: true }, JWT_SECRET, { expiresIn: '1d' });
   res.json({ token });
 });
- 
+
 // ─── USER ROUTES ──────────────────────────────────────────────────────────────
 // Get user data
 app.get('/api/user', auth, async (req, res) => {
@@ -139,7 +143,7 @@ app.get('/api/user', auth, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
- 
+
 // Save user data (portfolio, trades etc.)
 app.post('/api/user/save', auth, async (req, res) => {
   try {
@@ -151,14 +155,14 @@ app.post('/api/user/save', auth, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
- 
+
 // Execute trade
 app.post('/api/trade', auth, async (req, res) => {
   try {
     const { sym, type, qty, price } = req.body;
     const user = await User.findById(req.user.id);
     const total = qty * price;
- 
+
     if (type === 'BUY') {
       if (total > user.cash) return res.status(400).json({ error: 'Insufficient balance!' });
       user.cash -= total;
@@ -173,7 +177,7 @@ app.post('/api/trade', auth, async (req, res) => {
       user.holdings[sym].qty -= qty;
       if (user.holdings[sym].qty <= 0) delete user.holdings[sym];
     }
- 
+
     user.trades.unshift({ sym, type, qty, price, total, time: new Date() });
     user.markModified('holdings');
     user.markModified('trades');
@@ -184,7 +188,7 @@ app.post('/api/trade', auth, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
- 
+
 // ─── LEADERBOARD ──────────────────────────────────────────────────────────────
 app.get('/api/leaderboard', auth, async (req, res) => {
   try {
@@ -194,12 +198,12 @@ app.get('/api/leaderboard', auth, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
- 
+
 // ─── MARKET STATE ─────────────────────────────────────────────────────────────
 app.get('/api/market-state', (req, res) => {
   res.json(marketState);
 });
- 
+
 // ─── ADMIN ROUTES ─────────────────────────────────────────────────────────────
 // Get all students
 app.get('/api/admin/students', adminAuth, async (req, res) => {
@@ -210,7 +214,7 @@ app.get('/api/admin/students', adminAuth, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
- 
+
 // Reset a student's portfolio
 app.post('/api/admin/reset/:roll', adminAuth, async (req, res) => {
   try {
@@ -224,7 +228,7 @@ app.post('/api/admin/reset/:roll', adminAuth, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
- 
+
 // Reset ALL portfolios
 app.post('/api/admin/reset-all', adminAuth, async (req, res) => {
   try {
@@ -235,7 +239,7 @@ app.post('/api/admin/reset-all', adminAuth, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
- 
+
 // Market control — bull/bear/crash/normal/pause
 app.post('/api/admin/market', adminAuth, (req, res) => {
   const { mode } = req.body;
@@ -243,7 +247,7 @@ app.post('/api/admin/market', adminAuth, (req, res) => {
   io.emit('market-event', { mode });
   res.json({ success: true, mode });
 });
- 
+
 // Session timer
 app.post('/api/admin/session', adminAuth, (req, res) => {
   const { minutes } = req.body;
@@ -252,14 +256,14 @@ app.post('/api/admin/session', adminAuth, (req, res) => {
   io.emit('session-start', { endTime: marketState.sessionEndTime });
   res.json({ success: true });
 });
- 
+
 app.post('/api/admin/session/stop', adminAuth, (req, res) => {
   marketState.sessionActive = false;
   marketState.sessionEndTime = null;
   io.emit('session-stop');
   res.json({ success: true });
 });
- 
+
 // Inject custom news
 app.post('/api/admin/news', adminAuth, (req, res) => {
   const { title, body, impact, syms, effect } = req.body;
@@ -267,7 +271,7 @@ app.post('/api/admin/news', adminAuth, (req, res) => {
   io.emit('custom-news', news);
   res.json({ success: true });
 });
- 
+
 // Export leaderboard CSV
 app.get('/api/admin/export', adminAuth, async (req, res) => {
   try {
@@ -287,7 +291,7 @@ app.get('/api/admin/export', adminAuth, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
- 
+
 // Delete a student
 app.delete('/api/admin/student/:roll', adminAuth, async (req, res) => {
   try {
@@ -298,15 +302,14 @@ app.delete('/api/admin/student/:roll', adminAuth, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
- 
+
 // ─── SOCKET.IO ────────────────────────────────────────────────────────────────
 io.on('connection', (socket) => {
   console.log('Client connected:', socket.id);
   socket.emit('market-state', marketState);
   socket.on('disconnect', () => console.log('Client disconnected:', socket.id));
 });
- 
+
 // ─── START ────────────────────────────────────────────────────────────────────
-const PORT = process.env.PORT || 3000;
+const PORT = PORT || 3000;
 server.listen(PORT, () => console.log(`🚀 StockWave backend running on port ${PORT}`));
- 
