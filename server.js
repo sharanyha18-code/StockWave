@@ -1,3 +1,5 @@
+
+Server · JS
 const express = require('express');
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
@@ -6,19 +8,27 @@ const cors = require('cors');
 const http = require('http');
 const { Server } = require('socket.io');
 require('dotenv').config();
-
+ 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: '*' } });
-
-app.use(cors());
+const io = new Server(server, { 
+  cors: { 
+    origin: ['https://sharanyha18-code.github.io', '*'],
+    methods: ['GET', 'POST']
+  } 
+});
+ 
+app.use(cors({
+  origin: ['https://sharanyha18-code.github.io', 'http://localhost:3000', '*'],
+  credentials: true
+}));
 app.use(express.json());
-
+ 
 // ─── MONGODB CONNECTION ───────────────────────────────────────────────────────
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => console.log('✅ MongoDB connected'))
   .catch(err => console.error('❌ MongoDB error:', err));
-
+ 
 // ─── SCHEMAS ──────────────────────────────────────────────────────────────────
 const userSchema = new mongoose.Schema({
   name: String,
@@ -34,15 +44,15 @@ const userSchema = new mongoose.Schema({
   portfolioHistory: { type: Array, default: [50000] },
   createdAt: { type: Date, default: Date.now }
 });
-
+ 
 const User = mongoose.model('User', userSchema);
-
+ 
 const settingsSchema = new mongoose.Schema({
   key: { type: String, unique: true },
   value: mongoose.Schema.Types.Mixed
 });
 const Settings = mongoose.model('Settings', settingsSchema);
-
+ 
 // ─── MIDDLEWARE ───────────────────────────────────────────────────────────────
 const auth = (req, res, next) => {
   const token = req.headers.authorization?.split(' ')[1];
@@ -54,7 +64,7 @@ const auth = (req, res, next) => {
     res.status(401).json({ error: 'Invalid token' });
   }
 };
-
+ 
 const adminAuth = (req, res, next) => {
   const token = req.headers.authorization?.split(' ')[1];
   if (!token) return res.status(401).json({ error: 'No token' });
@@ -67,7 +77,7 @@ const adminAuth = (req, res, next) => {
     res.status(401).json({ error: 'Invalid token' });
   }
 };
-
+ 
 // ─── MARKET STATE ─────────────────────────────────────────────────────────────
 let marketState = {
   mode: 'normal', // normal | bull | bear | crash | paused
@@ -75,7 +85,7 @@ let marketState = {
   sessionEndTime: null,
   customNews: null
 };
-
+ 
 // ─── AUTH ROUTES ──────────────────────────────────────────────────────────────
 // Register
 app.post('/api/register', async (req, res) => {
@@ -94,7 +104,7 @@ app.post('/api/register', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
+ 
 // Login
 app.post('/api/login', async (req, res) => {
   try {
@@ -109,7 +119,7 @@ app.post('/api/login', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
+ 
 // Admin login
 app.post('/api/admin/login', (req, res) => {
   const { password } = req.body;
@@ -118,7 +128,7 @@ app.post('/api/admin/login', (req, res) => {
   const token = jwt.sign({ isAdmin: true }, process.env.JWT_SECRET, { expiresIn: '1d' });
   res.json({ token });
 });
-
+ 
 // ─── USER ROUTES ──────────────────────────────────────────────────────────────
 // Get user data
 app.get('/api/user', auth, async (req, res) => {
@@ -129,7 +139,7 @@ app.get('/api/user', auth, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
+ 
 // Save user data (portfolio, trades etc.)
 app.post('/api/user/save', auth, async (req, res) => {
   try {
@@ -141,14 +151,14 @@ app.post('/api/user/save', auth, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
+ 
 // Execute trade
 app.post('/api/trade', auth, async (req, res) => {
   try {
     const { sym, type, qty, price } = req.body;
     const user = await User.findById(req.user.id);
     const total = qty * price;
-
+ 
     if (type === 'BUY') {
       if (total > user.cash) return res.status(400).json({ error: 'Insufficient balance!' });
       user.cash -= total;
@@ -163,7 +173,7 @@ app.post('/api/trade', auth, async (req, res) => {
       user.holdings[sym].qty -= qty;
       if (user.holdings[sym].qty <= 0) delete user.holdings[sym];
     }
-
+ 
     user.trades.unshift({ sym, type, qty, price, total, time: new Date() });
     user.markModified('holdings');
     user.markModified('trades');
@@ -174,7 +184,7 @@ app.post('/api/trade', auth, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
+ 
 // ─── LEADERBOARD ──────────────────────────────────────────────────────────────
 app.get('/api/leaderboard', auth, async (req, res) => {
   try {
@@ -184,12 +194,12 @@ app.get('/api/leaderboard', auth, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
+ 
 // ─── MARKET STATE ─────────────────────────────────────────────────────────────
 app.get('/api/market-state', (req, res) => {
   res.json(marketState);
 });
-
+ 
 // ─── ADMIN ROUTES ─────────────────────────────────────────────────────────────
 // Get all students
 app.get('/api/admin/students', adminAuth, async (req, res) => {
@@ -200,7 +210,7 @@ app.get('/api/admin/students', adminAuth, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
+ 
 // Reset a student's portfolio
 app.post('/api/admin/reset/:roll', adminAuth, async (req, res) => {
   try {
@@ -214,7 +224,7 @@ app.post('/api/admin/reset/:roll', adminAuth, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
+ 
 // Reset ALL portfolios
 app.post('/api/admin/reset-all', adminAuth, async (req, res) => {
   try {
@@ -225,7 +235,7 @@ app.post('/api/admin/reset-all', adminAuth, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
+ 
 // Market control — bull/bear/crash/normal/pause
 app.post('/api/admin/market', adminAuth, (req, res) => {
   const { mode } = req.body;
@@ -233,7 +243,7 @@ app.post('/api/admin/market', adminAuth, (req, res) => {
   io.emit('market-event', { mode });
   res.json({ success: true, mode });
 });
-
+ 
 // Session timer
 app.post('/api/admin/session', adminAuth, (req, res) => {
   const { minutes } = req.body;
@@ -242,14 +252,14 @@ app.post('/api/admin/session', adminAuth, (req, res) => {
   io.emit('session-start', { endTime: marketState.sessionEndTime });
   res.json({ success: true });
 });
-
+ 
 app.post('/api/admin/session/stop', adminAuth, (req, res) => {
   marketState.sessionActive = false;
   marketState.sessionEndTime = null;
   io.emit('session-stop');
   res.json({ success: true });
 });
-
+ 
 // Inject custom news
 app.post('/api/admin/news', adminAuth, (req, res) => {
   const { title, body, impact, syms, effect } = req.body;
@@ -257,7 +267,7 @@ app.post('/api/admin/news', adminAuth, (req, res) => {
   io.emit('custom-news', news);
   res.json({ success: true });
 });
-
+ 
 // Export leaderboard CSV
 app.get('/api/admin/export', adminAuth, async (req, res) => {
   try {
@@ -277,7 +287,7 @@ app.get('/api/admin/export', adminAuth, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
+ 
 // Delete a student
 app.delete('/api/admin/student/:roll', adminAuth, async (req, res) => {
   try {
@@ -288,14 +298,15 @@ app.delete('/api/admin/student/:roll', adminAuth, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
+ 
 // ─── SOCKET.IO ────────────────────────────────────────────────────────────────
 io.on('connection', (socket) => {
   console.log('Client connected:', socket.id);
   socket.emit('market-state', marketState);
   socket.on('disconnect', () => console.log('Client disconnected:', socket.id));
 });
-
+ 
 // ─── START ────────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`🚀 StockWave backend running on port ${PORT}`));
+ 
