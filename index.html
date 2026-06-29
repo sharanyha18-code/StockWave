@@ -184,13 +184,122 @@
   .search-bar input { background: none; border: none; color: var(--text); font-size: 14px; font-family: 'Inter', sans-serif; outline: none; flex: 1; }
   .search-bar span { color: var(--text3); }
 
-  /* ── RESPONSIVE ── */
+  /* ── RESPONSIVE / MOBILE ── */
   @media (max-width: 768px) {
     .dash-grid { grid-template-columns: 1fr 1fr; }
     .dash-bottom { grid-template-columns: 1fr; }
     .portfolio-grid { grid-template-columns: 1fr; }
-    .nav-links { display: none; }
-    .main { padding: 16px; }
+    .main { padding: 12px; }
+  }
+
+  /* ── MOBILE SPECIFIC ── */
+  @media (max-width: 600px) {
+    /* Hide desktop navbar links */
+    .nav-links { display: none !important; }
+    .balance-chip { display: none; }
+    
+    /* Adjust top bars for mobile */
+    .navbar { padding: 0 12px; height: 52px; }
+    .logo { font-size: 18px; }
+    var(--ticker-h): 36px;
+
+    /* Main content above bottom nav */
+    .main { 
+      margin-top: calc(36px + 52px); 
+      padding: 12px 10px 80px 10px;
+      min-height: calc(100vh - 36px - 52px - 64px);
+    }
+
+    /* Bottom Navigation */
+    .mobile-nav {
+      display: flex !important;
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      height: 64px;
+      background: var(--bg2);
+      border-top: 1px solid var(--border);
+      z-index: 999;
+      align-items: center;
+      justify-content: space-around;
+      padding: 0 4px;
+    }
+
+    .mob-nav-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      padding: 8px 6px;
+      border-radius: 10px;
+      cursor: pointer;
+      flex: 1;
+      background: none;
+      border: none;
+      color: var(--text3);
+      font-family: 'Inter', sans-serif;
+      font-size: 9px;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+    .mob-nav-btn .mob-icon { font-size: 20px; line-height: 1; }
+    .mob-nav-btn.active { color: var(--green); }
+    .mob-nav-btn.active .mob-icon { transform: scale(1.1); }
+
+    /* Mobile card adjustments */
+    .stat-card { padding: 14px 12px; }
+    .stat-val { font-size: 18px !important; }
+    .stat-label { font-size: 10px; }
+    .dash-grid { grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+    .dash-bottom { gap: 10px; }
+    .card { padding: 14px 12px; }
+    
+    /* Mobile market table - hide some columns */
+    .market-table th:nth-child(4),
+    .market-table td:nth-child(4) { display: none; }
+    .market-table th, .market-table td { padding: 10px 8px; font-size: 11px; }
+    .buy-btn-sm, .sell-btn-sm { padding: 5px 8px; font-size: 11px; }
+
+    /* Mobile holdings table */
+    .holdings-table th:nth-child(2),
+    .holdings-table td:nth-child(2),
+    .holdings-table th:nth-child(3),
+    .holdings-table td:nth-child(3) { display: none; }
+    .holdings-table th, .holdings-table td { padding: 10px 8px; font-size: 11px; }
+
+    /* Mobile leaderboard */
+    .lb-table th:nth-child(4),
+    .lb-table td:nth-child(4),
+    .lb-table th:nth-child(5),
+    .lb-table td:nth-child(5) { display: none; }
+    .lb-table th, .lb-table td { padding: 10px 12px; font-size: 12px; }
+
+    /* Mobile trade modal */
+    .trade-modal { padding: 20px 16px; }
+    .modal-stock { font-size: 16px; }
+    .modal-price { font-size: 18px; }
+
+    /* Mobile filter tabs scroll */
+    .filter-tabs { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 4px; }
+    .filter-tab { white-space: nowrap; }
+
+    /* Mobile SIP grid */
+    .sip-grid { grid-template-columns: 1fr 1fr; }
+
+    /* Mobile portfolio growth */
+    #pgCurrentVal { font-size: 28px !important; }
+
+    /* Mobile market title */
+    .market-title { font-size: 16px; }
+    .market-header { flex-direction: column; gap: 10px; align-items: flex-start; }
+
+    /* Mobile facts grid */
+    .facts-grid { grid-template-columns: 1fr; }
+
+    /* User chip simplified */
+    .user-chip { padding: 4px 8px; font-size: 11px; }
+
+    /* Top movers mobile */
+    #topMovers { grid-template-columns: 1fr 1fr !important; }
   }
 
   .tag { display: inline-block; padding: 2px 8px; border-radius: 5px; font-size: 10px; font-weight: 700; margin-left: 6px; }
@@ -286,7 +395,37 @@
   </div>
 </div>
 
-<!-- AUTH PAGE -->
+<!-- MOBILE BOTTOM NAV -->
+<div class="mobile-nav" id="mobileNav" style="display:none">
+  <button class="mob-nav-btn active" onclick="showPage('home');setMobActive(this)">
+    <span class="mob-icon">🏠</span>Home
+  </button>
+  <button class="mob-nav-btn" onclick="showPage('explore');setMobActive(this)">
+    <span class="mob-icon">🔍</span>Explore
+  </button>
+  <button class="mob-nav-btn" onclick="showPage('holdings');setMobActive(this)">
+    <span class="mob-icon">📊</span>Holdings
+  </button>
+  <button class="mob-nav-btn" onclick="showPage('watchlist');setMobActive(this)">
+    <span class="mob-icon">⭐</span>Watchlist
+  </button>
+  <button class="mob-nav-btn" onclick="showPage('orders');setMobActive(this)">
+    <span class="mob-icon">📋</span>Orders
+  </button>
+  <button class="mob-nav-btn" onclick="showMobMore()">
+    <span class="mob-icon">☰</span>More
+  </button>
+</div>
+
+<!-- MOBILE MORE MENU -->
+<div id="mobMoreMenu" style="display:none;position:fixed;bottom:64px;left:0;right:0;background:var(--bg2);border-top:1px solid var(--border);z-index:998;padding:12px">
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+    <button onclick="showPage('news');closeMobMore()" style="background:var(--bg3);border:none;border-radius:12px;padding:12px 6px;color:var(--text);font-size:10px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;display:flex;flex-direction:column;align-items:center;gap:4px"><span style="font-size:20px">📰</span>News</button>
+    <button onclick="showPage('sip');closeMobMore()" style="background:var(--bg3);border:none;border-radius:12px;padding:12px 6px;color:var(--text);font-size:10px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;display:flex;flex-direction:column;align-items:center;gap:4px"><span style="font-size:20px">🔄</span>SIP</button>
+    <button onclick="showPage('leaderboard');closeMobMore()" style="background:var(--bg3);border:none;border-radius:12px;padding:12px 6px;color:var(--text);font-size:10px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;display:flex;flex-direction:column;align-items:center;gap:4px"><span style="font-size:20px">🏆</span>Rank</button>
+    <button onclick="showPage('learn');closeMobMore()" style="background:var(--bg3);border:none;border-radius:12px;padding:12px 6px;color:var(--text);font-size:10px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;display:flex;flex-direction:column;align-items:center;gap:4px"><span style="font-size:20px">🎓</span>Learn</button>
+  </div>
+</div>
 <div class="auth-page" id="authPage">
   <div class="auth-card">
     <div class="auth-logo">StockWave</div>
@@ -1032,10 +1171,13 @@ async function login() {
 
 function logout() {
   currentUser = null;
+  authToken = null;
   sessionStorage.removeItem('sw_session');
+  sessionStorage.removeItem('sw_token');
   document.getElementById('authPage').style.display = 'flex';
   document.getElementById('mainApp').style.display = 'none';
   document.getElementById('navbar').style.display = 'none';
+  hideMobileNav();
 }
 
 function showAuthMsg(msg, color) {
@@ -1056,7 +1198,7 @@ function startApp() {
   renderLeaderboard();
   setTimeout(() => generateNewsEvent(), 4000);
   connectSocket();
-  // Auto save to backend every 30 seconds
+  showMobileNav();
   setInterval(saveUserToBackend, 30000);
 }
 
@@ -1752,7 +1894,47 @@ function showToast(msg, type) {
   setTimeout(() => t.className = 'toast', 3000);
 }
 
-// ─── MARKET HOURS ─────────────────────────────────────────────────────────────
+// ─── MOBILE NAV ───────────────────────────────────────────────────────────────
+function isMobile() { return window.innerWidth <= 600; }
+
+function setMobActive(btn) {
+  document.querySelectorAll('.mob-nav-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  closeMobMore();
+}
+
+function showMobMore() {
+  const menu = document.getElementById('mobMoreMenu');
+  menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+}
+
+function closeMobMore() {
+  document.getElementById('mobMoreMenu').style.display = 'none';
+}
+
+// Show mobile nav when logged in
+function showMobileNav() {
+  if (isMobile()) {
+    document.getElementById('mobileNav').style.display = 'flex';
+  }
+}
+
+// Hide mobile nav on logout
+function hideMobileNav() {
+  document.getElementById('mobileNav').style.display = 'none';
+  document.getElementById('mobMoreMenu').style.display = 'none';
+}
+
+// Handle window resize
+window.addEventListener('resize', () => {
+  if (currentUser) {
+    if (isMobile()) {
+      document.getElementById('mobileNav').style.display = 'flex';
+    } else {
+      document.getElementById('mobileNav').style.display = 'none';
+    }
+  }
+});
 function getMarketStatus() {
   const now = new Date();
   const h = now.getHours(), m = now.getMinutes();
