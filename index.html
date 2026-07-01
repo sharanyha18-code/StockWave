@@ -367,6 +367,15 @@
   .deriv-dir-btn { flex:1;padding:12px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text2);font-weight:700;font-size:14px;cursor:pointer;font-family:'Inter',sans-serif;transition:all 0.2s; }
   .deriv-dir-btn.active-long { border-color:var(--green);background:rgba(0,208,156,0.12);color:var(--green); }
   .deriv-dir-btn.active-short { border-color:var(--red);background:rgba(255,77,109,0.12);color:var(--red); }
+  .fo-tab { padding:10px 18px;background:none;border:none;border-bottom:2px solid transparent;color:var(--text2);font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;transition:all 0.2s; }
+  .fo-tab.active { color:var(--text);border-bottom-color:var(--blue); }
+  .opt-badge { display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700; }
+  .opt-call { background:rgba(0,208,156,0.12);color:var(--green); }
+  .opt-put { background:rgba(255,77,109,0.12);color:var(--red); }
+  .strike-chip { padding:12px 8px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text2);font-size:13px;font-weight:700;cursor:pointer;font-family:'JetBrains Mono',monospace;text-align:center;transition:all 0.2s; }
+  .strike-chip:hover { border-color:var(--blue); }
+  .strike-chip.selected { border-color:var(--blue);background:rgba(59,130,246,0.12);color:var(--blue); }
+  .strike-chip .strike-tag { display:block;font-size:9px;font-weight:600;color:var(--text3);margin-top:2px;font-family:'Inter',sans-serif; }
   .sip-grid { display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px; }
   .sip-stat { background:var(--bg);border-radius:10px;padding:10px 12px; }
   .sip-stat-label { font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px; }
@@ -681,18 +690,36 @@
 
   <!-- DERIVATIVES / F&O -->
   <div class="page" id="page-derivatives">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:gap">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:gap">
       <div>
-        <h2 style="font-size:22px;font-weight:800;margin-bottom:4px">📈 F&O — Futures</h2>
-        <p style="color:var(--text2);font-size:13px">Trade stock futures with margin — go Long or Short</p>
+        <h2 style="font-size:22px;font-weight:800;margin-bottom:4px">📈 F&O</h2>
+        <p style="color:var(--text2);font-size:13px">Futures &amp; Options — trade with leverage</p>
       </div>
-      <button onclick="openDerivModal()" style="padding:10px 20px;background:linear-gradient(135deg,var(--blue),#2563eb);border:none;border-radius:10px;color:#fff;font-weight:700;font-size:14px;cursor:pointer;font-family:'Inter',sans-serif">+ New Position</button>
+      <div id="foActionBtn"></div>
     </div>
-    <div id="derivStats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px"></div>
-    <div style="margin-bottom:12px;font-size:13px;color:var(--text2);font-weight:700">OPEN POSITIONS</div>
-    <div id="derivOpenList" style="margin-bottom:28px"></div>
-    <div style="margin-bottom:12px;font-size:13px;color:var(--text2);font-weight:700">CLOSED POSITIONS</div>
-    <div id="derivClosedList"></div>
+
+    <div style="display:flex;gap:8px;margin-bottom:24px;border-bottom:1px solid var(--border)">
+      <button class="fo-tab active" id="foTabFutures" onclick="switchFoTab('futures')">Futures</button>
+      <button class="fo-tab" id="foTabOptions" onclick="switchFoTab('options')">Options</button>
+    </div>
+
+    <!-- FUTURES SUB-PAGE -->
+    <div id="foFuturesView">
+      <div id="derivStats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px"></div>
+      <div style="margin-bottom:12px;font-size:13px;color:var(--text2);font-weight:700">OPEN POSITIONS</div>
+      <div id="derivOpenList" style="margin-bottom:28px"></div>
+      <div style="margin-bottom:12px;font-size:13px;color:var(--text2);font-weight:700">CLOSED POSITIONS</div>
+      <div id="derivClosedList"></div>
+    </div>
+
+    <!-- OPTIONS SUB-PAGE -->
+    <div id="foOptionsView" style="display:none">
+      <div id="optStats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px"></div>
+      <div style="margin-bottom:12px;font-size:13px;color:var(--text2);font-weight:700">OPEN POSITIONS</div>
+      <div id="optOpenList" style="margin-bottom:28px"></div>
+      <div style="margin-bottom:12px;font-size:13px;color:var(--text2);font-weight:700">CLOSED POSITIONS</div>
+      <div id="optClosedList"></div>
+    </div>
   </div>
 
   <!-- LEARN -->
@@ -890,6 +917,71 @@
   </div>
 </div>
 
+<!-- OPTIONS MODAL -->
+<div class="modal-overlay hidden" id="optModal">
+  <div class="trade-modal" style="max-width:520px">
+    <div class="modal-header">
+      <div>
+        <div class="modal-stock">🎯 New Options Position</div>
+        <div style="color:var(--text2);font-size:12px">Buy a Call or Put — pay premium upfront</div>
+      </div>
+      <button class="modal-close" onclick="closeOptModal()">✕</button>
+    </div>
+
+    <div class="input-group">
+      <label>Select Underlying</label>
+      <div id="optContractList" style="display:grid;grid-template-columns:1fr 1fr;gap:10px"></div>
+    </div>
+
+    <div id="optSelectedInfo" style="display:none">
+      <div class="input-group">
+        <label>Option Type</label>
+        <div style="display:flex;gap:8px">
+          <button class="deriv-dir-btn active-long" id="optBtnCall" onclick="setOptType('CALL')">📈 CALL</button>
+          <button class="deriv-dir-btn" id="optBtnPut" onclick="setOptType('PUT')">📉 PUT</button>
+        </div>
+      </div>
+
+      <div class="input-group">
+        <label>Strike Price <span style="color:var(--text3);font-weight:400">(spot: <span id="optSpotPrice"></span>)</span></label>
+        <div id="optStrikeList" style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px"></div>
+      </div>
+
+      <div class="input-group">
+        <label>Expiry / Tenure — your choice</label>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px" id="optTenureBtns">
+          <button class="sip-freq-btn" data-days="7" onclick="selectOptTenure(7,this)">1 Week</button>
+          <button class="sip-freq-btn" data-days="15" onclick="selectOptTenure(15,this)">2 Weeks</button>
+          <button class="sip-freq-btn active-freq" data-days="30" onclick="selectOptTenure(30,this)">1 Month</button>
+          <button class="sip-freq-btn" data-days="custom" onclick="selectOptTenure('custom',this)">Custom</button>
+        </div>
+        <input type="date" id="optCustomExpiry" style="display:none;margin-top:8px;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px 14px;color:var(--text);font-size:14px;font-family:'Inter',sans-serif;outline:none;width:100%" oninput="onOptCustomExpiryChange()">
+      </div>
+
+      <div class="input-group">
+        <label>Number of Lots</label>
+        <div class="qty-control">
+          <button class="qty-btn" onclick="changeOptLots(-1)">−</button>
+          <input type="number" class="qty-input" id="optLotsInput" value="1" min="1" oninput="updateOptProjection()">
+          <button class="qty-btn" onclick="changeOptLots(1)">+</button>
+        </div>
+      </div>
+
+      <div style="background:var(--bg);border-radius:12px;padding:14px;margin-bottom:16px">
+        <div style="font-size:12px;color:var(--text2);margin-bottom:8px;font-weight:600">📊 PROJECTION</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div><div style="font-size:11px;color:var(--text3)">Premium (per lot)</div><div id="optPremiumPerLot" style="font-weight:700;font-family:'JetBrains Mono',monospace">—</div></div>
+          <div><div style="font-size:11px;color:var(--text3)">Total Premium (cost)</div><div id="optTotalPremium" style="font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--gold)">—</div></div>
+          <div><div style="font-size:11px;color:var(--text3)">Breakeven</div><div id="optBreakeven" style="font-weight:700;font-family:'JetBrains Mono',monospace">—</div></div>
+          <div><div style="font-size:11px;color:var(--text3)">Cash Available After</div><div id="optBalAfter" style="font-weight:700;font-family:'JetBrains Mono',monospace">—</div></div>
+        </div>
+      </div>
+    </div>
+
+    <button class="execute-btn buy" id="optExecuteBtn" onclick="openOptPosition()">Buy Option 🎯</button>
+  </div>
+</div>
+
 <!-- ALERT MODAL -->
 <div class="modal-overlay hidden" id="alertModal">
   <div class="trade-modal" style="max-width:400px">
@@ -1023,7 +1115,7 @@ async function saveUserToBackend() {
   const u = getUserData(currentUser);
   if (!u) return;
   try {
-    await apiPost('/api/user/save', { cash: u.cash, holdings: u.holdings, trades: u.trades, sips: u.sips, alerts: u.alerts, watchlist: u.watchlist, amo: u.amo, portfolioHistory: u.portfolioHistory, derivatives: u.derivatives });
+    await apiPost('/api/user/save', { cash: u.cash, holdings: u.holdings, trades: u.trades, sips: u.sips, alerts: u.alerts, watchlist: u.watchlist, amo: u.amo, portfolioHistory: u.portfolioHistory, derivatives: u.derivatives, options: u.options });
   } catch(e) { console.log('Save failed:', e); }
 }
 // prevClose = yesterday's official closing price (realistic, slightly different from today's open)
@@ -1240,7 +1332,7 @@ async function register() {
     authToken = data.token;
     // Save to localStorage as cache
     const users = getUsers();
-    users[roll] = { name, roll, pass, cash: 50000, holdings: {}, trades: [], sips: [], alerts: [], watchlist: [], amo: [], portfolioHistory: [50000], derivatives: [], joinedAt: new Date().toISOString() };
+    users[roll] = { name, roll, pass, cash: 50000, holdings: {}, trades: [], sips: [], alerts: [], watchlist: [], amo: [], portfolioHistory: [50000], derivatives: [], options: [], joinedAt: new Date().toISOString() };
     saveUsers(users);
     showAuthMsg('Account created! Please login.', 'var(--green)');
     switchAuthTab('login');
@@ -3065,6 +3157,323 @@ function renderDerivativesPage() {
   }).join('') : `<div class="empty-state"><div class="icon">📋</div><p>No closed positions yet.</p></div>`;
 }
 
+// ─── OPTIONS (Calls & Puts) ─────────────────────────────────────────────────────
+// Simplified pricing model (not real Black-Scholes) — intrinsic value + a time-value
+// component driven by each instrument's simulated volatility, so premiums behave
+// sensibly (higher for OTM near expiry with high vol, decay as expiry approaches).
+let selectedOptContract = null;
+let selectedOptType = 'CALL';
+let selectedOptStrike = null;
+let selectedOptTenureDays = 30;
+
+function getStrikeInterval(price) {
+  if (price < 100) return 5;
+  if (price < 500) return 10;
+  if (price < 1500) return 25;
+  if (price < 5000) return 50;
+  return 100;
+}
+
+function getAvailableStrikes(underlying) {
+  const price = prices[underlying];
+  const interval = getStrikeInterval(price);
+  const atm = Math.round(price / interval) * interval;
+  return [-2, -1, 0, 1, 2].map(n => atm + n * interval);
+}
+
+function calcOptionPremium(underlying, strike, optType, daysToExp) {
+  const inst = INSTRUMENTS.find(i => i.sym === underlying);
+  const S = prices[underlying];
+  const intrinsic = optType === 'CALL' ? Math.max(0, S - strike) : Math.max(0, strike - S);
+  if (daysToExp <= 0) return Math.round(intrinsic * 100) / 100; // at/after expiry — pure intrinsic value
+  const iv = (inst?.vol || 1.5) / 100;
+  const T = daysToExp / 365;
+  const timeValue = Math.max(S * iv * Math.sqrt(T) * 2.5, 0.5);
+  return Math.round((intrinsic + timeValue) * 100) / 100;
+}
+
+function switchFoTab(tab) {
+  document.getElementById('foTabFutures').classList.toggle('active', tab === 'futures');
+  document.getElementById('foTabOptions').classList.toggle('active', tab === 'options');
+  document.getElementById('foFuturesView').style.display = tab === 'futures' ? 'block' : 'none';
+  document.getElementById('foOptionsView').style.display = tab === 'options' ? 'block' : 'none';
+  const btn = document.getElementById('foActionBtn');
+  if (tab === 'futures') {
+    btn.innerHTML = `<button onclick="openDerivModal()" style="padding:10px 20px;background:linear-gradient(135deg,var(--blue),#2563eb);border:none;border-radius:10px;color:#fff;font-weight:700;font-size:14px;cursor:pointer;font-family:'Inter',sans-serif">+ New Position</button>`;
+    renderDerivativesPage();
+  } else {
+    btn.innerHTML = `<button onclick="openOptModal()" style="padding:10px 20px;background:linear-gradient(135deg,var(--purple),#7c3aed);border:none;border-radius:10px;color:#fff;font-weight:700;font-size:14px;cursor:pointer;font-family:'Inter',sans-serif">+ New Option</button>`;
+    renderOptionsPage();
+  }
+}
+
+function openOptModal() {
+  if (!FO_ENABLED) return showToast('⏸ F&O trading is currently disabled by your teacher', 'error');
+  selectedOptContract = null;
+  selectedOptType = 'CALL';
+  selectedOptStrike = null;
+  selectedOptTenureDays = 30;
+  document.getElementById('optLotsInput').value = 1;
+  document.getElementById('optSelectedInfo').style.display = 'none';
+  document.getElementById('optBtnCall').classList.add('active-long');
+  document.getElementById('optBtnPut').classList.remove('active-short');
+  document.getElementById('optExecuteBtn').textContent = 'Buy Option 🎯';
+  document.getElementById('optExecuteBtn').className = 'execute-btn buy';
+  document.getElementById('optCustomExpiry').style.display = 'none';
+  document.getElementById('optCustomExpiry').value = '';
+  document.querySelectorAll('#optTenureBtns .sip-freq-btn').forEach(b => b.classList.remove('active-freq'));
+  document.querySelector('#optTenureBtns [data-days="30"]').classList.add('active-freq');
+  renderOptContractPicker();
+  document.getElementById('optModal').classList.remove('hidden');
+}
+
+function closeOptModal() { document.getElementById('optModal').classList.add('hidden'); }
+
+function renderOptContractPicker() {
+  const active = FUTURES_CONTRACTS.filter(c => c.active !== false);
+  document.getElementById('optContractList').innerHTML = active.map(c => {
+    const price = prices[c.underlying];
+    return `<div class="deriv-contract-card${selectedOptContract === c.id ? ' selected' : ''}" onclick="selectOptContract('${c.id}')">
+      <div style="font-weight:700;font-size:13px">${c.underlying}</div>
+      <div style="font-size:11px;color:var(--text2);margin-bottom:6px">Lot: ${c.lotSize}</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--blue);font-size:13px">₹${fmt(price)}</div>
+    </div>`;
+  }).join('');
+}
+
+function selectOptContract(id) {
+  selectedOptContract = id;
+  renderOptContractPicker();
+  const c = FUTURES_CONTRACTS.find(x => x.id === id);
+  document.getElementById('optSelectedInfo').style.display = 'block';
+  document.getElementById('optSpotPrice').textContent = `₹${fmt(prices[c.underlying])}`;
+  const strikes = getAvailableStrikes(c.underlying);
+  selectedOptStrike = strikes[2]; // ATM
+  renderOptStrikes();
+  updateOptProjection();
+}
+
+function renderOptStrikes() {
+  if (!selectedOptContract) return;
+  const c = FUTURES_CONTRACTS.find(x => x.id === selectedOptContract);
+  const strikes = getAvailableStrikes(c.underlying);
+  const spot = prices[c.underlying];
+  document.getElementById('optStrikeList').innerHTML = strikes.map(k => {
+    let tag;
+    if (selectedOptType === 'CALL') tag = k < spot ? 'ITM' : k > spot ? 'OTM' : 'ATM';
+    else tag = k > spot ? 'ITM' : k < spot ? 'OTM' : 'ATM';
+    return `<div class="strike-chip${selectedOptStrike === k ? ' selected' : ''}" onclick="selectOptStrike(${k})">₹${fmt(k)}<span class="strike-tag">${tag}</span></div>`;
+  }).join('');
+}
+
+function selectOptStrike(k) {
+  selectedOptStrike = k;
+  renderOptStrikes();
+  updateOptProjection();
+}
+
+function setOptType(type) {
+  selectedOptType = type;
+  document.getElementById('optBtnCall').classList.toggle('active-long', type === 'CALL');
+  document.getElementById('optBtnPut').classList.toggle('active-short', type === 'PUT');
+  document.getElementById('optExecuteBtn').textContent = type === 'CALL' ? 'Buy CALL Option 📈' : 'Buy PUT Option 📉';
+  document.getElementById('optExecuteBtn').className = type === 'CALL' ? 'execute-btn buy' : 'execute-btn sell';
+  renderOptStrikes();
+  updateOptProjection();
+}
+
+function selectOptTenure(days, btn) {
+  document.querySelectorAll('#optTenureBtns .sip-freq-btn').forEach(b => b.classList.remove('active-freq'));
+  btn.classList.add('active-freq');
+  selectedOptTenureDays = days;
+  const ci = document.getElementById('optCustomExpiry');
+  if (days === 'custom') {
+    ci.style.display = 'block';
+    const min = new Date(); min.setDate(min.getDate() + 1);
+    ci.min = min.toISOString().slice(0, 10);
+    if (!ci.value) ci.value = min.toISOString().slice(0, 10);
+  } else {
+    ci.style.display = 'none';
+  }
+  updateOptProjection();
+}
+
+function onOptCustomExpiryChange() { updateOptProjection(); }
+
+function getOptSelectedExpiryDate() {
+  if (selectedOptTenureDays === 'custom') {
+    const v = document.getElementById('optCustomExpiry').value;
+    return v ? new Date(v + 'T15:30:00') : null;
+  }
+  const d = new Date();
+  d.setDate(d.getDate() + selectedOptTenureDays);
+  d.setHours(15, 30, 0, 0);
+  return d;
+}
+
+function changeOptLots(delta) {
+  const inp = document.getElementById('optLotsInput');
+  inp.value = Math.max(1, (parseInt(inp.value) || 1) + delta);
+  updateOptProjection();
+}
+
+document.addEventListener('input', e => { if (e.target.id === 'optLotsInput') updateOptProjection(); });
+
+function updateOptProjection() {
+  if (!selectedOptContract || selectedOptStrike == null) return;
+  const c = FUTURES_CONTRACTS.find(x => x.id === selectedOptContract);
+  const expiry = getOptSelectedExpiryDate();
+  const lots = Math.max(1, parseInt(document.getElementById('optLotsInput').value) || 1);
+  if (!expiry) {
+    ['optPremiumPerLot','optTotalPremium','optBreakeven','optBalAfter'].forEach(id => document.getElementById(id).textContent = '—');
+    return;
+  }
+  const dte = daysToExpiry(expiry);
+  const premium = calcOptionPremium(c.underlying, selectedOptStrike, selectedOptType, dte);
+  const perLot = premium * c.lotSize;
+  const total = perLot * lots;
+  const breakeven = selectedOptType === 'CALL' ? selectedOptStrike + premium : selectedOptStrike - premium;
+  const u = getUserData(currentUser);
+  const balAfter = u.cash - total;
+  document.getElementById('optPremiumPerLot').textContent = `₹${fmt(perLot)}`;
+  document.getElementById('optTotalPremium').textContent = `₹${fmt(total)}`;
+  document.getElementById('optBreakeven').textContent = `₹${fmt(breakeven)}`;
+  document.getElementById('optBalAfter').textContent = balAfter >= 0 ? `₹${fmt(balAfter)}` : '❌ Insufficient';
+  document.getElementById('optBalAfter').style.color = balAfter >= 0 ? 'var(--green)' : 'var(--red)';
+}
+
+function openOptPosition() {
+  if (!selectedOptContract) return showToast('Please select an underlying', 'error');
+  if (selectedOptStrike == null) return showToast('Please select a strike price', 'error');
+  const expiry = getOptSelectedExpiryDate();
+  if (!expiry) return showToast('Please pick an expiry date', 'error');
+  if (expiry <= new Date()) return showToast('Expiry must be in the future', 'error');
+  const c = FUTURES_CONTRACTS.find(x => x.id === selectedOptContract);
+  const lots = Math.max(1, parseInt(document.getElementById('optLotsInput').value) || 1);
+  const dte = daysToExpiry(expiry);
+  const premium = calcOptionPremium(c.underlying, selectedOptStrike, selectedOptType, dte);
+  const totalCost = premium * c.lotSize * lots;
+  const u = getUserData(currentUser);
+  if (totalCost > u.cash) return showToast('Insufficient balance for premium!', 'error');
+
+  const position = {
+    id: Date.now(),
+    contractId: c.id,
+    underlying: c.underlying,
+    lotSize: c.lotSize,
+    optionType: selectedOptType,
+    strike: selectedOptStrike,
+    lots,
+    entryPremium: premium,
+    premiumPaid: totalCost,
+    expiry: expiry.toISOString(),
+    openedAt: new Date().toISOString(),
+    status: 'OPEN'
+  };
+  u.cash -= totalCost;
+  u.options = u.options || [];
+  u.options.push(position);
+  u.trades.unshift({ sym: c.underlying, type: selectedOptType === 'CALL' ? 'OPT-CALL-BUY' : 'OPT-PUT-BUY', qty: lots * c.lotSize, price: premium, total: totalCost, time: new Date().toISOString() });
+  saveUserData(currentUser, u);
+  closeOptModal();
+  showToast(`🎯 Bought ${lots} lot(s) ${c.underlying} ₹${fmt(selectedOptStrike)} ${selectedOptType} @ ₹${fmt(premium)}`, 'success');
+  renderOptionsPage();
+  updateNavBalance();
+}
+
+function closeOptPosition(id) {
+  const u = getUserData(currentUser);
+  const pos = (u.options || []).find(p => p.id === id && p.status === 'OPEN');
+  if (!pos) return;
+  const dte = daysToExpiry(pos.expiry);
+  const exitPremium = calcOptionPremium(pos.underlying, pos.strike, pos.optionType, dte);
+  const proceeds = exitPremium * pos.lotSize * pos.lots;
+  const pnl = proceeds - pos.premiumPaid;
+  u.cash += proceeds;
+  pos.status = 'CLOSED';
+  pos.exitPremium = exitPremium;
+  pos.realizedPnl = pnl;
+  pos.closedAt = new Date().toISOString();
+  u.trades.unshift({ sym: pos.underlying, type: 'OPT-SELL', qty: pos.lots * pos.lotSize, price: exitPremium, total: pnl, time: new Date().toISOString() });
+  saveUserData(currentUser, u);
+  showToast(`${pnl >= 0 ? '✅' : '⚠️'} Option closed: ${pnl >= 0 ? '+' : ''}₹${fmt(pnl)} P&L`, pnl >= 0 ? 'success' : 'error');
+  renderOptionsPage();
+  updateNavBalance();
+}
+
+function renderOptionsPage() {
+  const u = getUserData(currentUser);
+  const positions = u.options || [];
+  const open = positions.filter(p => p.status === 'OPEN');
+  const closed = positions.filter(p => p.status === 'CLOSED');
+  const premiumInvested = open.reduce((s, p) => s + p.premiumPaid, 0);
+  let unrealizedTotal = 0;
+
+  const openHtml = open.map(p => {
+    const dte = daysToExpiry(p.expiry);
+    const isExpired = new Date(p.expiry) <= new Date();
+    const curPremium = calcOptionPremium(p.underlying, p.strike, p.optionType, dte);
+    const curValue = curPremium * p.lotSize * p.lots;
+    const pnl = curValue - p.premiumPaid;
+    unrealizedTotal += pnl;
+    const dir = pnl >= 0;
+    return `<div class="sip-card">
+      <div class="sip-card-header">
+        <div>
+          <div style="font-size:16px;font-weight:700">${p.underlying} ₹${fmt(p.strike)} <span class="tag">OPT</span></div>
+          <div style="font-size:12px;color:var(--text2);margin-top:2px">${p.lots} lot(s) × ${p.lotSize}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="opt-badge ${p.optionType === 'CALL' ? 'opt-call' : 'opt-put'}">${p.optionType === 'CALL' ? '📈 CALL' : '📉 PUT'}</span>
+          ${isExpired ? `<span class="pos-badge pos-short">⏳ Expired</span>` : ''}
+        </div>
+      </div>
+      <div class="sip-grid" style="grid-template-columns:repeat(3,1fr)">
+        <div class="sip-stat"><div class="sip-stat-label">Entry Premium</div><div class="sip-stat-val">₹${fmt(p.entryPremium)}</div></div>
+        <div class="sip-stat"><div class="sip-stat-label">Current Premium</div><div class="sip-stat-val">₹${fmt(curPremium)}</div></div>
+        <div class="sip-stat"><div class="sip-stat-label">Premium Paid</div><div class="sip-stat-val">₹${fmt(p.premiumPaid)}</div></div>
+        <div class="sip-stat"><div class="sip-stat-label">Current Value</div><div class="sip-stat-val">₹${fmt(curValue)}</div></div>
+        <div class="sip-stat"><div class="sip-stat-label">Unrealized P&L</div><div class="sip-stat-val" style="color:${dir?'var(--green)':'var(--red)'}">${dir?'+':''}₹${fmt(pnl)}</div></div>
+        <div class="sip-stat"><div class="sip-stat-label">Expiry</div><div class="sip-stat-val" style="color:${isExpired?'var(--red)':(dte<=3?'var(--gold)':'var(--text)')}">${fmtExpiry(p.expiry)} (${dte}d)</div></div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button onclick="closeOptPosition(${p.id})" style="padding:8px 14px;border-radius:8px;border:1px solid var(--red);background:rgba(255,77,109,0.1);color:var(--red);font-weight:700;font-size:12px;cursor:pointer;font-family:'Inter',sans-serif">✕ Sell / Square Off</button>
+        <span style="padding:8px 14px;font-size:11px;color:var(--text3)">Bought: ${new Date(p.openedAt).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})}</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('optStats').innerHTML = `
+    <div class="stat-card"><div class="stat-label">Open Positions</div><div class="stat-val" style="font-size:28px">${open.length}</div><div class="stat-sub">${positions.length} total</div></div>
+    <div class="stat-card"><div class="stat-label">Premium Invested</div><div class="stat-val" style="font-size:22px">₹${fmt(premiumInvested)}</div><div class="stat-sub">across open positions</div></div>
+    <div class="stat-card"><div class="stat-label">Unrealized P&L</div><div class="stat-val" style="font-size:22px;color:${unrealizedTotal>=0?'var(--green)':'var(--red)'}">${unrealizedTotal>=0?'+':''}₹${fmt(unrealizedTotal)}</div><div class="stat-sub">mark-to-market</div></div>
+    <div class="stat-card"><div class="stat-label">Cash Available</div><div class="stat-val" style="font-size:22px">₹${fmt(u.cash)}</div><div class="stat-sub">not in premium</div></div>`;
+
+  if (!FO_ENABLED) {
+    document.getElementById('optOpenList').innerHTML = `<div class="empty-state"><div class="icon">⏸</div><p>Your teacher has paused F&O trading for now.</p></div>`;
+  } else {
+    document.getElementById('optOpenList').innerHTML = open.length ? openHtml : `<div class="empty-state"><div class="icon">🎯</div><p>No open options. Click "New Option" to buy your first Call or Put!</p></div>`;
+  }
+
+  document.getElementById('optClosedList').innerHTML = closed.length ? closed.slice(0, 20).map(p => {
+    const dir = p.realizedPnl >= 0;
+    return `<div class="sip-card">
+      <div class="sip-card-header">
+        <div>
+          <div style="font-size:15px;font-weight:700">${p.underlying} ₹${fmt(p.strike)} <span class="tag">OPT</span></div>
+          <div style="font-size:12px;color:var(--text2);margin-top:2px">${p.lots} lot(s) × ${p.lotSize} — ${p.optionType}</div>
+        </div>
+        <span class="pos-badge pos-closed">CLOSED</span>
+      </div>
+      <div class="sip-grid" style="grid-template-columns:repeat(3,1fr)">
+        <div class="sip-stat"><div class="sip-stat-label">Entry → Exit Premium</div><div class="sip-stat-val">₹${fmt(p.entryPremium)} → ₹${fmt(p.exitPremium)}</div></div>
+        <div class="sip-stat"><div class="sip-stat-label">Realized P&L</div><div class="sip-stat-val" style="color:${dir?'var(--green)':'var(--red)'}">${dir?'+':''}₹${fmt(p.realizedPnl)}</div></div>
+        <div class="sip-stat"><div class="sip-stat-label">Closed</div><div class="sip-stat-val" style="font-size:12px">${new Date(p.closedAt).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})}</div></div>
+      </div>
+    </div>`;
+  }).join('') : `<div class="empty-state"><div class="icon">📋</div><p>No closed positions yet.</p></div>`;
+}
+
 // ─── UPDATE showPage ──────────────────────────────────────────────────────────
 function showPage(page) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -3082,7 +3491,7 @@ function showPage(page) {
   if (page === 'news') renderNews();
   if (page === 'learn') renderLearn();
   if (page === 'sip') renderSipPage();
-  if (page === 'derivatives') renderDerivativesPage();
+  if (page === 'derivatives') switchFoTab('futures');
 }
 
 // ─── BOOT ─────────────────────────────────────────────────────────────────────
@@ -3106,7 +3515,10 @@ priceInterval = setInterval(() => {
   simulatePrices();
   checkAlerts();
   updateMarketStatusChip();
-  if (document.getElementById('page-derivatives')?.classList.contains('active')) renderDerivativesPage();
+  if (document.getElementById('page-derivatives')?.classList.contains('active')) {
+    if (document.getElementById('foOptionsView').style.display === 'none') renderDerivativesPage();
+    else renderOptionsPage();
+  }
 }, 3000);
 
 // News event every 20 seconds
@@ -3121,6 +3533,7 @@ document.getElementById('alertModal').addEventListener('click', function(e) { if
 document.getElementById('amoModal').addEventListener('click', function(e) { if (e.target === this) document.getElementById('amoModal').classList.add('hidden'); });
 document.getElementById('sipModal').addEventListener('click', function(e) { if (e.target === this) closeSipModal(); });
 document.getElementById('derivModal').addEventListener('click', function(e) { if (e.target === this) closeDerivModal(); });
+document.getElementById('optModal').addEventListener('click', function(e) { if (e.target === this) closeOptModal(); });
 </script>
 </body>
 </html>
