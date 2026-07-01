@@ -356,6 +356,17 @@
   .sip-badge { display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700; }
   .sip-active { background:rgba(0,208,156,0.12);color:var(--green); }
   .sip-paused { background:rgba(245,158,11,0.12);color:var(--gold); }
+  /* Derivatives / F&O */
+  .pos-badge { display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700; }
+  .pos-long { background:rgba(0,208,156,0.12);color:var(--green); }
+  .pos-short { background:rgba(255,77,109,0.12);color:var(--red); }
+  .pos-closed { background:rgba(143,163,191,0.12);color:var(--text2); }
+  .deriv-contract-card { background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;cursor:pointer;transition:all 0.2s; }
+  .deriv-contract-card:hover { border-color:var(--blue); }
+  .deriv-contract-card.selected { border-color:var(--blue);background:rgba(59,130,246,0.08); }
+  .deriv-dir-btn { flex:1;padding:12px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text2);font-weight:700;font-size:14px;cursor:pointer;font-family:'Inter',sans-serif;transition:all 0.2s; }
+  .deriv-dir-btn.active-long { border-color:var(--green);background:rgba(0,208,156,0.12);color:var(--green); }
+  .deriv-dir-btn.active-short { border-color:var(--red);background:rgba(255,77,109,0.12);color:var(--red); }
   .sip-grid { display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px; }
   .sip-stat { background:var(--bg);border-radius:10px;padding:10px 12px; }
   .sip-stat-label { font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px; }
@@ -384,6 +395,7 @@
     <button class="nav-btn" onclick="showPage('watchlist')">⭐ Watchlist</button>
     <button class="nav-btn" onclick="showPage('news')">📰 News</button>
     <button class="nav-btn" onclick="showPage('sip')">🔄 SIP</button>
+    <button class="nav-btn" onclick="showPage('derivatives')">📈 F&O</button>
     <button class="nav-btn" onclick="showPage('orders')">Orders</button>
     <button class="nav-btn" onclick="showPage('leaderboard')">Leaderboard</button>
     <button class="nav-btn" onclick="showPage('learn')">🎓 Learn</button>
@@ -419,9 +431,10 @@
 
 <!-- MOBILE MORE MENU -->
 <div id="mobMoreMenu" style="display:none;position:fixed;bottom:64px;left:0;right:0;background:var(--bg2);border-top:1px solid var(--border);z-index:998;padding:12px">
-  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px">
     <button onclick="showPage('news');closeMobMore()" style="background:var(--bg3);border:none;border-radius:12px;padding:12px 6px;color:var(--text);font-size:10px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;display:flex;flex-direction:column;align-items:center;gap:4px"><span style="font-size:20px">📰</span>News</button>
     <button onclick="showPage('sip');closeMobMore()" style="background:var(--bg3);border:none;border-radius:12px;padding:12px 6px;color:var(--text);font-size:10px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;display:flex;flex-direction:column;align-items:center;gap:4px"><span style="font-size:20px">🔄</span>SIP</button>
+    <button onclick="showPage('derivatives');closeMobMore()" style="background:var(--bg3);border:none;border-radius:12px;padding:12px 6px;color:var(--text);font-size:10px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;display:flex;flex-direction:column;align-items:center;gap:4px"><span style="font-size:20px">📈</span>F&O</button>
     <button onclick="showPage('leaderboard');closeMobMore()" style="background:var(--bg3);border:none;border-radius:12px;padding:12px 6px;color:var(--text);font-size:10px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;display:flex;flex-direction:column;align-items:center;gap:4px"><span style="font-size:20px">🏆</span>Rank</button>
     <button onclick="showPage('learn');closeMobMore()" style="background:var(--bg3);border:none;border-radius:12px;padding:12px 6px;color:var(--text);font-size:10px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;display:flex;flex-direction:column;align-items:center;gap:4px"><span style="font-size:20px">🎓</span>Learn</button>
   </div>
@@ -666,6 +679,22 @@
     <div id="sipList"></div>
   </div>
 
+  <!-- DERIVATIVES / F&O -->
+  <div class="page" id="page-derivatives">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:gap">
+      <div>
+        <h2 style="font-size:22px;font-weight:800;margin-bottom:4px">📈 F&O — Futures</h2>
+        <p style="color:var(--text2);font-size:13px">Trade stock futures with margin — go Long or Short</p>
+      </div>
+      <button onclick="openDerivModal()" style="padding:10px 20px;background:linear-gradient(135deg,var(--blue),#2563eb);border:none;border-radius:10px;color:#fff;font-weight:700;font-size:14px;cursor:pointer;font-family:'Inter',sans-serif">+ New Position</button>
+    </div>
+    <div id="derivStats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px"></div>
+    <div style="margin-bottom:12px;font-size:13px;color:var(--text2);font-weight:700">OPEN POSITIONS</div>
+    <div id="derivOpenList" style="margin-bottom:28px"></div>
+    <div style="margin-bottom:12px;font-size:13px;color:var(--text2);font-weight:700">CLOSED POSITIONS</div>
+    <div id="derivClosedList"></div>
+  </div>
+
   <!-- LEARN -->
   <div class="page" id="page-learn">
     <div style="margin-bottom:24px">
@@ -783,6 +812,66 @@
     </div>
 
     <button class="execute-btn buy" onclick="createSip()">Start SIP 🔄</button>
+  </div>
+</div>
+
+<!-- DERIVATIVES MODAL -->
+<div class="modal-overlay hidden" id="derivModal">
+  <div class="trade-modal" style="max-width:480px">
+    <div class="modal-header">
+      <div>
+        <div class="modal-stock">📈 New Futures Position</div>
+        <div style="color:var(--text2);font-size:12px">Trade with margin — Long or Short</div>
+      </div>
+      <button class="modal-close" onclick="closeDerivModal()">✕</button>
+    </div>
+
+    <div class="input-group">
+      <label>Select Contract</label>
+      <div id="derivContractList" style="display:grid;grid-template-columns:1fr 1fr;gap:10px"></div>
+    </div>
+
+    <div id="derivSelectedInfo" style="display:none;background:var(--bg);border-radius:10px;padding:12px 14px;margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+        <span style="font-size:12px;color:var(--text2)">Futures Price</span>
+        <span id="derivFutPrice" style="font-family:'JetBrains Mono',monospace;font-weight:700"></span>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+        <span style="font-size:12px;color:var(--text2)">Lot Size</span>
+        <span id="derivLotSize" style="font-family:'JetBrains Mono',monospace;font-weight:700"></span>
+      </div>
+      <div style="display:flex;justify-content:space-between">
+        <span style="font-size:12px;color:var(--text2)">Margin Required (per lot)</span>
+        <span id="derivMarginPerLot" style="font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--gold)"></span>
+      </div>
+    </div>
+
+    <div class="input-group">
+      <label>Direction</label>
+      <div style="display:flex;gap:8px">
+        <button class="deriv-dir-btn active-long" id="derivBtnLong" onclick="setDerivDirection('LONG')">📈 LONG (Buy)</button>
+        <button class="deriv-dir-btn" id="derivBtnShort" onclick="setDerivDirection('SHORT')">📉 SHORT (Sell)</button>
+      </div>
+    </div>
+
+    <div class="input-group">
+      <label>Number of Lots</label>
+      <div class="qty-control">
+        <button class="qty-btn" onclick="changeDerivLots(-1)">−</button>
+        <input type="number" class="qty-input" id="derivLotsInput" value="1" min="1" oninput="updateDerivProjection()">
+        <button class="qty-btn" onclick="changeDerivLots(1)">+</button>
+      </div>
+    </div>
+
+    <div style="background:var(--bg);border-radius:12px;padding:14px;margin-bottom:16px">
+      <div style="font-size:12px;color:var(--text2);margin-bottom:8px;font-weight:600">📊 PROJECTION</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div><div style="font-size:11px;color:var(--text3)">Total Margin Required</div><div id="derivTotalMargin" style="font-weight:700;font-family:'JetBrains Mono',monospace">—</div></div>
+        <div><div style="font-size:11px;color:var(--text3)">Cash Available After</div><div id="derivBalAfter" style="font-weight:700;font-family:'JetBrains Mono',monospace">—</div></div>
+      </div>
+    </div>
+
+    <button class="execute-btn buy" id="derivExecuteBtn" onclick="openDerivPosition()">Open Long Position 📈</button>
   </div>
 </div>
 
@@ -917,7 +1006,7 @@ async function saveUserToBackend() {
   const u = getUserData(currentUser);
   if (!u) return;
   try {
-    await apiPost('/api/user/save', { cash: u.cash, holdings: u.holdings, trades: u.trades, sips: u.sips, alerts: u.alerts, watchlist: u.watchlist, amo: u.amo, portfolioHistory: u.portfolioHistory });
+    await apiPost('/api/user/save', { cash: u.cash, holdings: u.holdings, trades: u.trades, sips: u.sips, alerts: u.alerts, watchlist: u.watchlist, amo: u.amo, portfolioHistory: u.portfolioHistory, derivatives: u.derivatives });
   } catch(e) { console.log('Save failed:', e); }
 }
 // prevClose = yesterday's official closing price (realistic, slightly different from today's open)
@@ -1134,7 +1223,7 @@ async function register() {
     authToken = data.token;
     // Save to localStorage as cache
     const users = getUsers();
-    users[roll] = { name, roll, pass, cash: 50000, holdings: {}, trades: [], sips: [], alerts: [], watchlist: [], amo: [], portfolioHistory: [50000], joinedAt: new Date().toISOString() };
+    users[roll] = { name, roll, pass, cash: 50000, holdings: {}, trades: [], sips: [], alerts: [], watchlist: [], amo: [], portfolioHistory: [50000], derivatives: [], joinedAt: new Date().toISOString() };
     saveUsers(users);
     showAuthMsg('Account created! Please login.', 'var(--green)');
     switchAuthTab('login');
@@ -1208,7 +1297,7 @@ function showPage(page) {
   document.getElementById(`page-${page}`).classList.add('active');
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   const btns = document.querySelectorAll('.nav-btn');
-  const pages = ['home','explore','holdings','watchlist','news','sip','orders','leaderboard','learn'];
+  const pages = ['home','explore','holdings','watchlist','news','sip','derivatives','orders','leaderboard','learn'];
   const idx = pages.indexOf(page);
   if (btns[idx]) btns[idx].classList.add('active');
   if (page === 'holdings') { renderPortfolio(); }
@@ -2631,12 +2720,219 @@ function renderSipPage() {
   }).join('');
 }
 
+// ─── DERIVATIVES / F&O (Futures) ───────────────────────────────────────────────
+// Lot sizes are calibrated so ~1 lot needs roughly ₹3,000 margin on a ₹50,000 classroom account
+const MARGIN_PCT = 0.20;              // 20% margin requirement
+const MAINTENANCE_PCT = 0.12;         // below this % of position value, a margin call warning shows
+const FUTURES_CONTRACTS = [
+  { id:'RELIANCE-FUT',  underlying:'RELIANCE',  name:'Reliance Futures',    lotSize:10, premium:0.0022 },
+  { id:'TCS-FUT',       underlying:'TCS',       name:'TCS Futures',         lotSize:4,  premium:0.0018 },
+  { id:'HDFCBANK-FUT',  underlying:'HDFCBANK',  name:'HDFC Bank Futures',   lotSize:9,  premium:0.0020 },
+  { id:'NIFTYBEES-FUT', underlying:'NIFTYBEES', name:'Nifty 50 Futures',    lotSize:55, premium:0.0012 },
+];
+
+let selectedDerivContract = null;
+let selectedDerivDirection = 'LONG';
+
+function getFuturesPrice(contract) {
+  return prices[contract.underlying] * (1 + contract.premium);
+}
+
+function openDerivModal() {
+  selectedDerivContract = null;
+  selectedDerivDirection = 'LONG';
+  document.getElementById('derivLotsInput').value = 1;
+  document.getElementById('derivSelectedInfo').style.display = 'none';
+  document.getElementById('derivTotalMargin').textContent = '—';
+  document.getElementById('derivBalAfter').textContent = '—';
+  document.getElementById('derivBtnLong').classList.add('active-long');
+  document.getElementById('derivBtnShort').classList.remove('active-short');
+  renderDerivContractPicker();
+  document.getElementById('derivModal').classList.remove('hidden');
+}
+
+function closeDerivModal() { document.getElementById('derivModal').classList.add('hidden'); }
+
+function renderDerivContractPicker() {
+  document.getElementById('derivContractList').innerHTML = FUTURES_CONTRACTS.map(c => {
+    const futPrice = getFuturesPrice(c);
+    return `<div class="deriv-contract-card${selectedDerivContract === c.id ? ' selected' : ''}" onclick="selectDerivContract('${c.id}')">
+      <div style="font-weight:700;font-size:13px">${c.underlying}</div>
+      <div style="font-size:11px;color:var(--text2);margin-bottom:6px">Lot: ${c.lotSize}</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--blue);font-size:13px">₹${fmt(futPrice)}</div>
+    </div>`;
+  }).join('');
+}
+
+function selectDerivContract(id) {
+  selectedDerivContract = id;
+  renderDerivContractPicker();
+  const c = FUTURES_CONTRACTS.find(x => x.id === id);
+  const futPrice = getFuturesPrice(c);
+  const marginPerLot = futPrice * c.lotSize * MARGIN_PCT;
+  document.getElementById('derivSelectedInfo').style.display = 'block';
+  document.getElementById('derivFutPrice').textContent = `₹${fmt(futPrice)}`;
+  document.getElementById('derivLotSize').textContent = c.lotSize;
+  document.getElementById('derivMarginPerLot').textContent = `₹${fmt(marginPerLot)}`;
+  updateDerivProjection();
+}
+
+function setDerivDirection(dir) {
+  selectedDerivDirection = dir;
+  document.getElementById('derivBtnLong').classList.toggle('active-long', dir === 'LONG');
+  document.getElementById('derivBtnShort').classList.toggle('active-short', dir === 'SHORT');
+  document.getElementById('derivExecuteBtn').textContent = dir === 'LONG' ? 'Open Long Position 📈' : 'Open Short Position 📉';
+  document.getElementById('derivExecuteBtn').className = dir === 'LONG' ? 'execute-btn buy' : 'execute-btn sell';
+  updateDerivProjection();
+}
+
+function changeDerivLots(delta) {
+  const inp = document.getElementById('derivLotsInput');
+  inp.value = Math.max(1, (parseInt(inp.value) || 1) + delta);
+  updateDerivProjection();
+}
+
+function updateDerivProjection() {
+  if (!selectedDerivContract) return;
+  const c = FUTURES_CONTRACTS.find(x => x.id === selectedDerivContract);
+  const lots = Math.max(1, parseInt(document.getElementById('derivLotsInput').value) || 1);
+  const futPrice = getFuturesPrice(c);
+  const totalMargin = futPrice * c.lotSize * lots * MARGIN_PCT;
+  const u = getUserData(currentUser);
+  const balAfter = u.cash - totalMargin;
+  document.getElementById('derivTotalMargin').textContent = `₹${fmt(totalMargin)}`;
+  document.getElementById('derivBalAfter').textContent = balAfter >= 0 ? `₹${fmt(balAfter)}` : '❌ Insufficient';
+  document.getElementById('derivBalAfter').style.color = balAfter >= 0 ? 'var(--green)' : 'var(--red)';
+}
+
+document.addEventListener('input', e => { if (e.target.id === 'derivLotsInput') updateDerivProjection(); });
+
+function openDerivPosition() {
+  if (!selectedDerivContract) return showToast('Please select a contract', 'error');
+  const c = FUTURES_CONTRACTS.find(x => x.id === selectedDerivContract);
+  const lots = Math.max(1, parseInt(document.getElementById('derivLotsInput').value) || 1);
+  const futPrice = getFuturesPrice(c);
+  const margin = futPrice * c.lotSize * lots * MARGIN_PCT;
+  const u = getUserData(currentUser);
+  if (margin > u.cash) return showToast('Insufficient balance for required margin!', 'error');
+
+  const position = {
+    id: Date.now(),
+    contractId: c.id,
+    underlying: c.underlying,
+    name: c.name,
+    lotSize: c.lotSize,
+    direction: selectedDerivDirection,
+    lots,
+    entryPrice: futPrice,
+    margin,
+    openedAt: new Date().toISOString(),
+    status: 'OPEN'
+  };
+  u.cash -= margin;
+  u.derivatives = u.derivatives || [];
+  u.derivatives.push(position);
+  u.trades.unshift({ sym: c.underlying, type: selectedDerivDirection === 'LONG' ? 'FUT-BUY' : 'FUT-SELL', qty: lots * c.lotSize, price: futPrice, total: margin, time: new Date().toISOString() });
+  saveUserData(currentUser, u);
+  closeDerivModal();
+  showToast(`📈 ${selectedDerivDirection} position opened: ${lots} lot(s) of ${c.underlying} Futures @ ₹${fmt(futPrice)}`, 'success');
+  renderDerivativesPage();
+  updateNavBalance();
+}
+
+function closeDerivPosition(id) {
+  const u = getUserData(currentUser);
+  const pos = (u.derivatives || []).find(p => p.id === id && p.status === 'OPEN');
+  if (!pos) return;
+  const c = FUTURES_CONTRACTS.find(x => x.id === pos.contractId);
+  const exitPrice = getFuturesPrice(c);
+  const pnl = (exitPrice - pos.entryPrice) * pos.lots * pos.lotSize * (pos.direction === 'LONG' ? 1 : -1);
+  u.cash += pos.margin + pnl;
+  pos.status = 'CLOSED';
+  pos.exitPrice = exitPrice;
+  pos.realizedPnl = pnl;
+  pos.closedAt = new Date().toISOString();
+  u.trades.unshift({ sym: pos.underlying, type: 'FUT-CLOSE', qty: pos.lots * pos.lotSize, price: exitPrice, total: pnl, time: new Date().toISOString() });
+  saveUserData(currentUser, u);
+  showToast(`${pnl >= 0 ? '✅' : '⚠️'} Position closed: ${pnl >= 0 ? '+' : ''}₹${fmt(pnl)} P&L`, pnl >= 0 ? 'success' : 'error');
+  renderDerivativesPage();
+  updateNavBalance();
+}
+
+function renderDerivativesPage() {
+  const u = getUserData(currentUser);
+  const positions = u.derivatives || [];
+  const open = positions.filter(p => p.status === 'OPEN');
+  const closed = positions.filter(p => p.status === 'CLOSED');
+
+  const marginUsed = open.reduce((s, p) => s + p.margin, 0);
+  let unrealizedTotal = 0;
+  const openHtml = open.map(p => {
+    const c = FUTURES_CONTRACTS.find(x => x.id === p.contractId);
+    const ltp = getFuturesPrice(c);
+    const pnl = (ltp - p.entryPrice) * p.lots * p.lotSize * (p.direction === 'LONG' ? 1 : -1);
+    unrealizedTotal += pnl;
+    const positionValue = ltp * p.lots * p.lotSize;
+    const marginCall = pnl < 0 && Math.abs(pnl) > p.margin * (1 - MAINTENANCE_PCT / MARGIN_PCT);
+    const dir = pnl >= 0;
+    return `<div class="sip-card">
+      <div class="sip-card-header">
+        <div>
+          <div style="font-size:16px;font-weight:700">${p.underlying} <span class="tag">FUT</span></div>
+          <div style="font-size:12px;color:var(--text2);margin-top:2px">${p.name} — ${p.lots} lot(s) × ${p.lotSize}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="pos-badge ${p.direction === 'LONG' ? 'pos-long' : 'pos-short'}">${p.direction === 'LONG' ? '📈 LONG' : '📉 SHORT'}</span>
+          ${marginCall ? `<span class="pos-badge pos-short">⚠️ Margin Call</span>` : ''}
+        </div>
+      </div>
+      <div class="sip-grid" style="grid-template-columns:repeat(4,1fr)">
+        <div class="sip-stat"><div class="sip-stat-label">Entry Price</div><div class="sip-stat-val">₹${fmt(p.entryPrice)}</div></div>
+        <div class="sip-stat"><div class="sip-stat-label">LTP</div><div class="sip-stat-val">₹${fmt(ltp)}</div></div>
+        <div class="sip-stat"><div class="sip-stat-label">Margin Used</div><div class="sip-stat-val">₹${fmt(p.margin)}</div></div>
+        <div class="sip-stat"><div class="sip-stat-label">Unrealized P&L</div><div class="sip-stat-val" style="color:${dir?'var(--green)':'var(--red)'}">${dir?'+':''}₹${fmt(pnl)}</div></div>
+        <div class="sip-stat"><div class="sip-stat-label">Position Value</div><div class="sip-stat-val">₹${fmt(positionValue)}</div></div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button onclick="closeDerivPosition(${p.id})" style="padding:8px 14px;border-radius:8px;border:1px solid var(--red);background:rgba(255,77,109,0.1);color:var(--red);font-weight:700;font-size:12px;cursor:pointer;font-family:'Inter',sans-serif">✕ Square Off</button>
+        <span style="padding:8px 14px;font-size:11px;color:var(--text3)">Opened: ${new Date(p.openedAt).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})}</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('derivStats').innerHTML = `
+    <div class="stat-card"><div class="stat-label">Open Positions</div><div class="stat-val" style="font-size:28px">${open.length}</div><div class="stat-sub">${positions.length} total</div></div>
+    <div class="stat-card"><div class="stat-label">Margin Blocked</div><div class="stat-val" style="font-size:22px">₹${fmt(marginUsed)}</div><div class="stat-sub">across open positions</div></div>
+    <div class="stat-card"><div class="stat-label">Unrealized P&L</div><div class="stat-val" style="font-size:22px;color:${unrealizedTotal>=0?'var(--green)':'var(--red)'}">${unrealizedTotal>=0?'+':''}₹${fmt(unrealizedTotal)}</div><div class="stat-sub">mark-to-market</div></div>
+    <div class="stat-card"><div class="stat-label">Cash Available</div><div class="stat-val" style="font-size:22px">₹${fmt(u.cash)}</div><div class="stat-sub">not in margin</div></div>`;
+
+  document.getElementById('derivOpenList').innerHTML = open.length ? openHtml : `<div class="empty-state"><div class="icon">📈</div><p>No open positions. Click "New Position" to trade your first future!</p></div>`;
+
+  document.getElementById('derivClosedList').innerHTML = closed.length ? closed.slice(0, 20).map(p => {
+    const dir = p.realizedPnl >= 0;
+    return `<div class="sip-card">
+      <div class="sip-card-header">
+        <div>
+          <div style="font-size:15px;font-weight:700">${p.underlying} <span class="tag">FUT</span></div>
+          <div style="font-size:12px;color:var(--text2);margin-top:2px">${p.lots} lot(s) × ${p.lotSize} — ${p.direction}</div>
+        </div>
+        <span class="pos-badge pos-closed">CLOSED</span>
+      </div>
+      <div class="sip-grid" style="grid-template-columns:repeat(3,1fr)">
+        <div class="sip-stat"><div class="sip-stat-label">Entry → Exit</div><div class="sip-stat-val">₹${fmt(p.entryPrice)} → ₹${fmt(p.exitPrice)}</div></div>
+        <div class="sip-stat"><div class="sip-stat-label">Realized P&L</div><div class="sip-stat-val" style="color:${dir?'var(--green)':'var(--red)'}">${dir?'+':''}₹${fmt(p.realizedPnl)}</div></div>
+        <div class="sip-stat"><div class="sip-stat-label">Closed</div><div class="sip-stat-val" style="font-size:12px">${new Date(p.closedAt).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})}</div></div>
+      </div>
+    </div>`;
+  }).join('') : `<div class="empty-state"><div class="icon">📋</div><p>No closed positions yet.</p></div>`;
+}
+
 // ─── UPDATE showPage ──────────────────────────────────────────────────────────
 function showPage(page) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById(`page-${page}`).classList.add('active');
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-  const pages = ['home','explore','holdings','watchlist','news','sip','orders','leaderboard','learn'];
+  const pages = ['home','explore','holdings','watchlist','news','sip','derivatives','orders','leaderboard','learn'];
   const btns = document.querySelectorAll('.nav-btn');
   const idx = pages.indexOf(page);
   if (btns[idx]) btns[idx].classList.add('active');
@@ -2648,6 +2944,7 @@ function showPage(page) {
   if (page === 'news') renderNews();
   if (page === 'learn') renderLearn();
   if (page === 'sip') renderSipPage();
+  if (page === 'derivatives') renderDerivativesPage();
 }
 
 // ─── BOOT ─────────────────────────────────────────────────────────────────────
@@ -2671,6 +2968,7 @@ priceInterval = setInterval(() => {
   simulatePrices();
   checkAlerts();
   updateMarketStatusChip();
+  if (document.getElementById('page-derivatives')?.classList.contains('active')) renderDerivativesPage();
 }, 3000);
 
 // News event every 20 seconds
@@ -2684,6 +2982,7 @@ document.getElementById('chartModal').addEventListener('click', function(e) { if
 document.getElementById('alertModal').addEventListener('click', function(e) { if (e.target === this) closeAlertModal(); });
 document.getElementById('amoModal').addEventListener('click', function(e) { if (e.target === this) document.getElementById('amoModal').classList.add('hidden'); });
 document.getElementById('sipModal').addEventListener('click', function(e) { if (e.target === this) closeSipModal(); });
+document.getElementById('derivModal').addEventListener('click', function(e) { if (e.target === this) closeDerivModal(); });
 </script>
 </body>
 </html>
