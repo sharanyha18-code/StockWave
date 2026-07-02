@@ -141,6 +141,7 @@
   .execute-btn.buy { background: linear-gradient(135deg, var(--green), #00a878); color: #000; }
   .execute-btn.sell { background: linear-gradient(135deg, var(--red), #cc3355); color: #fff; }
   .execute-btn:hover { opacity: 0.9; }
+  .execute-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
   /* ── PORTFOLIO ── */
   .portfolio-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
@@ -376,6 +377,16 @@
   .strike-chip:hover { border-color:var(--blue); }
   .strike-chip.selected { border-color:var(--blue);background:rgba(59,130,246,0.12);color:var(--blue); }
   .strike-chip .strike-tag { display:block;font-size:9px;font-weight:600;color:var(--text3);margin-top:2px;font-family:'Inter',sans-serif; }
+  .option-chain { width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:13px; }
+  .option-chain thead th { font-family:'Inter',sans-serif;font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;padding:6px 8px;text-align:center;border-bottom:1px solid var(--border); }
+  .option-chain td { padding:8px;text-align:center;border-bottom:1px solid var(--border); }
+  .chain-strike { font-weight:700;color:var(--text);background:var(--bg); }
+  .chain-cell { cursor:pointer;font-weight:700;transition:all 0.15s; }
+  .chain-call { color:var(--green); }
+  .chain-put { color:var(--red); }
+  .chain-cell:hover { background:var(--bg3); }
+  .chain-selected { background:rgba(59,130,246,0.15) !important;outline:2px solid var(--blue);outline-offset:-2px; }
+  .chain-atm-row td { background:rgba(59,130,246,0.04); }
   .sip-grid { display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px; }
   .sip-stat { background:var(--bg);border-radius:10px;padding:10px 12px; }
   .sip-stat-label { font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px; }
@@ -824,9 +835,9 @@
     <div class="input-group">
       <label>Frequency</label>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px" id="sipFreqBtns">
-        <button onclick="selectSipFreq('daily',this)" class="sip-freq-btn active-freq" data-freq="daily">📅 Daily<div style="font-size:10px;color:var(--text3);margin-top:2px">Every 30 sec</div></button>
-        <button onclick="selectSipFreq('weekly',this)" class="sip-freq-btn" data-freq="weekly">📆 Weekly<div style="font-size:10px;color:var(--text3);margin-top:2px">Every 2 min</div></button>
-        <button onclick="selectSipFreq('monthly',this)" class="sip-freq-btn" data-freq="monthly">🗓️ Monthly<div style="font-size:10px;color:var(--text3);margin-top:2px">Every 5 min</div></button>
+        <button onclick="selectSipFreq('daily',this)" class="sip-freq-btn active-freq" data-freq="daily">📅 Daily<div style="font-size:10px;color:var(--text3);margin-top:2px">Every day</div></button>
+        <button onclick="selectSipFreq('weekly',this)" class="sip-freq-btn" data-freq="weekly">📆 Weekly<div style="font-size:10px;color:var(--text3);margin-top:2px">Every 7 days</div></button>
+        <button onclick="selectSipFreq('monthly',this)" class="sip-freq-btn" data-freq="monthly">🗓️ Monthly<div style="font-size:10px;color:var(--text3);margin-top:2px">Same date, next month</div></button>
       </div>
     </div>
 
@@ -858,72 +869,61 @@
       <div id="derivContractList" style="display:grid;grid-template-columns:1fr 1fr;gap:10px"></div>
     </div>
 
-    <div id="derivSelectedInfo" style="display:none;background:var(--bg);border-radius:10px;padding:12px 14px;margin-bottom:14px">
-      <div style="display:flex;justify-content:space-between;margin-bottom:6px">
-        <span style="font-size:12px;color:var(--text2)">Futures Price</span>
-        <span id="derivFutPrice" style="font-family:'JetBrains Mono',monospace;font-weight:700"></span>
+    <div id="derivSelectedInfo" style="display:none">
+      <div class="input-group">
+        <label>Expiry Date <span style="color:var(--text3);font-weight:400">(exchange-fixed, monthly)</span></label>
+        <select id="derivExpirySelect" class="fo-mini-inp" style="width:100%;padding:12px 14px;font-size:14px" onchange="onDerivExpiryChange()"></select>
       </div>
-      <div style="display:flex;justify-content:space-between;margin-bottom:6px">
-        <span style="font-size:12px;color:var(--text2)">Lot Size</span>
-        <span id="derivLotSize" style="font-family:'JetBrains Mono',monospace;font-weight:700"></span>
+
+      <div style="background:var(--bg);border-radius:10px;padding:12px 14px;margin-bottom:14px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+          <span style="font-size:12px;color:var(--text2)">Futures Price</span>
+          <span id="derivFutPrice" style="font-family:'JetBrains Mono',monospace;font-weight:700"></span>
+        </div>
+        <div style="display:flex;justify-content:space-between">
+          <span style="font-size:12px;color:var(--text2)">Lot Size</span>
+          <span id="derivLotSize" style="font-family:'JetBrains Mono',monospace;font-weight:700"></span>
+        </div>
       </div>
-      <div style="display:flex;justify-content:space-between;margin-bottom:6px">
-        <span style="font-size:12px;color:var(--text2)">Expiry (Tenure)</span>
-        <span id="derivExpiry" style="font-family:'JetBrains Mono',monospace;font-weight:700"></span>
+
+      <div class="input-group">
+        <label>Transaction Type</label>
+        <div style="display:flex;gap:8px">
+          <button class="deriv-dir-btn active-long" id="derivBtnLong" onclick="setDerivDirection('LONG')">📈 BUY (Long)</button>
+          <button class="deriv-dir-btn" id="derivBtnShort" onclick="setDerivDirection('SHORT')">📉 SELL (Short)</button>
+        </div>
       </div>
-      <div style="display:flex;justify-content:space-between">
-        <span style="font-size:12px;color:var(--text2)">Margin Required (per lot)</span>
-        <span id="derivMarginPerLot" style="font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--gold)"></span>
+
+      <div class="input-group">
+        <label>Quantity (Lots)</label>
+        <div class="qty-control">
+          <button class="qty-btn" onclick="changeDerivLots(-1)">−</button>
+          <input type="number" class="qty-input" id="derivLotsInput" value="1" min="1" oninput="updateDerivProjection()">
+          <button class="qty-btn" onclick="changeDerivLots(1)">+</button>
+        </div>
+      </div>
+
+      <div style="background:var(--bg);border-radius:12px;padding:14px;margin-bottom:16px">
+        <div style="font-size:12px;color:var(--text2);margin-bottom:8px;font-weight:600">📊 ORDER SUMMARY</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div><div style="font-size:11px;color:var(--text3)">Margin Required (20%)</div><div id="derivTotalMargin" style="font-weight:700;font-family:'JetBrains Mono',monospace">—</div></div>
+          <div><div style="font-size:11px;color:var(--text3)">Cash Available After</div><div id="derivBalAfter" style="font-weight:700;font-family:'JetBrains Mono',monospace">—</div></div>
+        </div>
+        <div style="font-size:10px;color:var(--text3);margin-top:8px">💡 Only margin is blocked now. Gains/losses settle daily (mark-to-market) until you square off or the contract expires.</div>
       </div>
     </div>
 
-    <div class="input-group">
-      <label>Direction</label>
-      <div style="display:flex;gap:8px">
-        <button class="deriv-dir-btn active-long" id="derivBtnLong" onclick="setDerivDirection('LONG')">📈 LONG (Buy)</button>
-        <button class="deriv-dir-btn" id="derivBtnShort" onclick="setDerivDirection('SHORT')">📉 SHORT (Sell)</button>
-      </div>
-    </div>
-
-    <div class="input-group">
-      <label>Expiry / Tenure — your choice</label>
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px" id="derivTenureBtns">
-        <button class="sip-freq-btn" data-days="7" onclick="selectDerivTenure(7,this)">1 Week</button>
-        <button class="sip-freq-btn" data-days="15" onclick="selectDerivTenure(15,this)">2 Weeks</button>
-        <button class="sip-freq-btn active-freq" data-days="30" onclick="selectDerivTenure(30,this)">1 Month</button>
-        <button class="sip-freq-btn" data-days="custom" onclick="selectDerivTenure('custom',this)">Custom</button>
-      </div>
-      <input type="date" id="derivCustomExpiry" style="display:none;margin-top:8px;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px 14px;color:var(--text);font-size:14px;font-family:'Inter',sans-serif;outline:none;width:100%" oninput="onDerivCustomExpiryChange()">
-    </div>
-
-    <div class="input-group">
-      <label>Number of Lots</label>
-      <div class="qty-control">
-        <button class="qty-btn" onclick="changeDerivLots(-1)">−</button>
-        <input type="number" class="qty-input" id="derivLotsInput" value="1" min="1" oninput="updateDerivProjection()">
-        <button class="qty-btn" onclick="changeDerivLots(1)">+</button>
-      </div>
-    </div>
-
-    <div style="background:var(--bg);border-radius:12px;padding:14px;margin-bottom:16px">
-      <div style="font-size:12px;color:var(--text2);margin-bottom:8px;font-weight:600">📊 PROJECTION</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <div><div style="font-size:11px;color:var(--text3)">Total Margin Required</div><div id="derivTotalMargin" style="font-weight:700;font-family:'JetBrains Mono',monospace">—</div></div>
-        <div><div style="font-size:11px;color:var(--text3)">Cash Available After</div><div id="derivBalAfter" style="font-weight:700;font-family:'JetBrains Mono',monospace">—</div></div>
-      </div>
-    </div>
-
-    <button class="execute-btn buy" id="derivExecuteBtn" onclick="openDerivPosition()">Open Long Position 📈</button>
+    <button class="execute-btn buy" id="derivExecuteBtn" onclick="openDerivPosition()">Place Buy Order 📈</button>
   </div>
 </div>
 
 <!-- OPTIONS MODAL -->
 <div class="modal-overlay hidden" id="optModal">
-  <div class="trade-modal" style="max-width:520px">
+  <div class="trade-modal" style="max-width:560px">
     <div class="modal-header">
       <div>
         <div class="modal-stock">🎯 New Options Position</div>
-        <div style="color:var(--text2);font-size:12px">Buy a Call or Put — pay premium upfront</div>
+        <div style="color:var(--text2);font-size:12px">Pick from the Option Chain — pay premium upfront</div>
       </div>
       <button class="modal-close" onclick="closeOptModal()">✕</button>
     </div>
@@ -935,50 +935,48 @@
 
     <div id="optSelectedInfo" style="display:none">
       <div class="input-group">
-        <label>Option Type</label>
-        <div style="display:flex;gap:8px">
-          <button class="deriv-dir-btn active-long" id="optBtnCall" onclick="setOptType('CALL')">📈 CALL</button>
-          <button class="deriv-dir-btn" id="optBtnPut" onclick="setOptType('PUT')">📉 PUT</button>
-        </div>
+        <label>Expiry Date <span style="color:var(--text3);font-weight:400">(exchange-fixed, monthly)</span></label>
+        <select id="optExpirySelect" class="fo-mini-inp" style="width:100%;padding:12px 14px;font-size:14px" onchange="onOptExpiryChange()"></select>
       </div>
 
       <div class="input-group">
-        <label>Strike Price <span style="color:var(--text3);font-weight:400">(spot: <span id="optSpotPrice"></span>)</span></label>
-        <div id="optStrikeList" style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px"></div>
+        <label>Option Chain <span style="color:var(--text3);font-weight:400">(spot: <span id="optSpotPrice"></span>) — tap a premium to select</span></label>
+        <table class="option-chain">
+          <thead>
+            <tr><th style="text-align:right">CALL LTP</th><th>STRIKE</th><th style="text-align:left">PUT LTP</th></tr>
+          </thead>
+          <tbody id="optChainBody"></tbody>
+        </table>
       </div>
 
-      <div class="input-group">
-        <label>Expiry / Tenure — your choice</label>
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px" id="optTenureBtns">
-          <button class="sip-freq-btn" data-days="7" onclick="selectOptTenure(7,this)">1 Week</button>
-          <button class="sip-freq-btn" data-days="15" onclick="selectOptTenure(15,this)">2 Weeks</button>
-          <button class="sip-freq-btn active-freq" data-days="30" onclick="selectOptTenure(30,this)">1 Month</button>
-          <button class="sip-freq-btn" data-days="custom" onclick="selectOptTenure('custom',this)">Custom</button>
+      <div id="optOrderDetails" style="display:none">
+        <div style="background:var(--bg);border-radius:10px;padding:12px 14px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:12px;color:var(--text2)">Selected</span>
+          <span id="optSelectedLabel" style="font-weight:700;font-family:'JetBrains Mono',monospace"></span>
         </div>
-        <input type="date" id="optCustomExpiry" style="display:none;margin-top:8px;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px 14px;color:var(--text);font-size:14px;font-family:'Inter',sans-serif;outline:none;width:100%" oninput="onOptCustomExpiryChange()">
-      </div>
 
-      <div class="input-group">
-        <label>Number of Lots</label>
-        <div class="qty-control">
-          <button class="qty-btn" onclick="changeOptLots(-1)">−</button>
-          <input type="number" class="qty-input" id="optLotsInput" value="1" min="1" oninput="updateOptProjection()">
-          <button class="qty-btn" onclick="changeOptLots(1)">+</button>
+        <div class="input-group">
+          <label>Quantity (Lots)</label>
+          <div class="qty-control">
+            <button class="qty-btn" onclick="changeOptLots(-1)">−</button>
+            <input type="number" class="qty-input" id="optLotsInput" value="1" min="1" oninput="updateOptProjection()">
+            <button class="qty-btn" onclick="changeOptLots(1)">+</button>
+          </div>
         </div>
-      </div>
 
-      <div style="background:var(--bg);border-radius:12px;padding:14px;margin-bottom:16px">
-        <div style="font-size:12px;color:var(--text2);margin-bottom:8px;font-weight:600">📊 PROJECTION</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-          <div><div style="font-size:11px;color:var(--text3)">Premium (per lot)</div><div id="optPremiumPerLot" style="font-weight:700;font-family:'JetBrains Mono',monospace">—</div></div>
-          <div><div style="font-size:11px;color:var(--text3)">Total Premium (cost)</div><div id="optTotalPremium" style="font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--gold)">—</div></div>
-          <div><div style="font-size:11px;color:var(--text3)">Breakeven</div><div id="optBreakeven" style="font-weight:700;font-family:'JetBrains Mono',monospace">—</div></div>
-          <div><div style="font-size:11px;color:var(--text3)">Cash Available After</div><div id="optBalAfter" style="font-weight:700;font-family:'JetBrains Mono',monospace">—</div></div>
+        <div style="background:var(--bg);border-radius:12px;padding:14px;margin-bottom:16px">
+          <div style="font-size:12px;color:var(--text2);margin-bottom:8px;font-weight:600">📊 ORDER SUMMARY</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <div><div style="font-size:11px;color:var(--text3)">Premium (per lot)</div><div id="optPremiumPerLot" style="font-weight:700;font-family:'JetBrains Mono',monospace">—</div></div>
+            <div><div style="font-size:11px;color:var(--text3)">Total Premium (cost)</div><div id="optTotalPremium" style="font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--gold)">—</div></div>
+            <div><div style="font-size:11px;color:var(--text3)">Breakeven</div><div id="optBreakeven" style="font-weight:700;font-family:'JetBrains Mono',monospace">—</div></div>
+            <div><div style="font-size:11px;color:var(--text3)">Cash Available After</div><div id="optBalAfter" style="font-weight:700;font-family:'JetBrains Mono',monospace">—</div></div>
+          </div>
         </div>
       </div>
     </div>
 
-    <button class="execute-btn buy" id="optExecuteBtn" onclick="openOptPosition()">Buy Option 🎯</button>
+    <button class="execute-btn buy" id="optExecuteBtn" onclick="openOptPosition()" disabled>Select an option above</button>
   </div>
 </div>
 
@@ -2597,12 +2595,19 @@ function renderLearn() {
 // ─── SIP ──────────────────────────────────────────────────────────────────────
 const SIP_ELIGIBLE = INSTRUMENTS.filter(i => i.type === 'ETF' || (i.type === 'EQUITY' && ['RELIANCE','TCS','HDFCBANK','INFY','ICICIBANK','SBIN','BHARTIARTL','ITC','LT','AXISBANK','BAJFINANCE','MARUTI','TITAN','WIPRO','HCLTECH','SUNPHARMA','NTPC','TATAMOTORS','NESTLEIND','DRREDDY'].includes(i.sym)));
 
-const SIP_INTERVALS = { daily: 30000, weekly: 120000, monthly: 300000 };
-const SIP_LABELS = { daily: 'Daily (every 30s)', weekly: 'Weekly (every 2m)', monthly: 'Monthly (every 5m)' };
+const SIP_LABELS = { daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly' };
+
+function getNextSipDate(freq, fromDate) {
+  const d = new Date(fromDate);
+  if (freq === 'daily') d.setDate(d.getDate() + 1);
+  else if (freq === 'weekly') d.setDate(d.getDate() + 7);
+  else if (freq === 'monthly') d.setMonth(d.getMonth() + 1);
+  d.setHours(9, 15, 0, 0); // market open, matches real SIP debit timing
+  return d;
+}
 
 let selectedSipSym = null;
 let selectedSipFreq = 'daily';
-let sipTimers = {};
 
 function openSipModal() {
   selectedSipSym = null;
@@ -2686,6 +2691,7 @@ function createSip() {
     freq: selectedSipFreq,
     status: 'active',
     createdAt: new Date().toISOString(),
+    nextRun: getNextSipDate(selectedSipFreq, new Date()).toISOString(),
     installments: 0,
     totalInvested: 0,
     totalUnits: 0,
@@ -2695,49 +2701,62 @@ function createSip() {
   u.sips = u.sips || [];
   u.sips.push(sip);
   saveUserData(currentUser, u);
-  // Execute first installment immediately
-  executeSipInstallment(sip.id);
-  // Schedule auto
-  scheduleSip(sip.id, selectedSipFreq);
+  // First installment executes immediately, like a real SIP debits on registration day
+  runSipInstallment(u, sip);
+  saveUserData(currentUser, u);
   closeSipModal();
-  showToast(`🔄 SIP started! ₹${fmt(amt)} into ${selectedSipSym} ${SIP_LABELS[selectedSipFreq]}`, 'success');
+  showToast(`🔄 SIP started! ₹${fmt(amt)} into ${selectedSipSym} — ${SIP_LABELS[selectedSipFreq]}`, 'success');
   renderSipPage();
+  updateNavBalance();
 }
 
-function executeSipInstallment(sipId) {
-  const u = getUserData(currentUser);
-  const sip = (u.sips || []).find(s => s.id === sipId);
-  if (!sip || sip.status !== 'active') return;
+// Pure execution — operates on an already-loaded user object + sip, no fetch/save inside
+// (lets checkDueSips() catch up multiple missed installments efficiently in one save)
+function runSipInstallment(u, sip) {
   if (u.cash < sip.amount) {
-    showToast(`⚠️ SIP for ${sip.sym} skipped — insufficient balance`, 'error');
-    return;
+    sip.skipped = (sip.skipped || 0) + 1;
+    return false;
   }
   const price = prices[sip.sym];
   const units = sip.amount / price;
   u.cash -= sip.amount;
-  // Add to holdings
   u.holdings[sip.sym] = u.holdings[sip.sym] || { qty: 0, avgPrice: 0 };
   const h = u.holdings[sip.sym];
   h.avgPrice = ((h.avgPrice * h.qty) + (price * units)) / (h.qty + units);
   h.qty = parseFloat((h.qty + units).toFixed(4));
-  // Update SIP stats
   sip.installments++;
   sip.totalInvested += sip.amount;
   sip.totalUnits = parseFloat((sip.totalUnits + units).toFixed(4));
   sip.avgBuyPrice = sip.totalInvested / sip.totalUnits;
   sip.lastRun = new Date().toISOString();
   sip.history.push({ price, units: parseFloat(units.toFixed(4)), amount: sip.amount, time: new Date().toISOString() });
-  // Add to trade history
   u.trades.unshift({ sym: sip.sym, type: 'SIP', qty: parseFloat(units.toFixed(4)), price, total: sip.amount, time: new Date().toISOString() });
-  saveUserData(currentUser, u);
-  showToast(`🔄 SIP: Bought ${units.toFixed(4)} units of ${sip.sym} @ ₹${fmt(price)}`, 'success');
-  if (document.getElementById('page-sip').classList.contains('active')) renderSipPage();
-  updateNavBalance();
+  return true;
 }
 
-function scheduleSip(sipId, freq) {
-  if (sipTimers[sipId]) clearInterval(sipTimers[sipId]);
-  sipTimers[sipId] = setInterval(() => executeSipInstallment(sipId), SIP_INTERVALS[freq]);
+// Checks every active SIP's real due date and runs (and catches up) any installments that are due.
+// Called on login, on opening the SIP page, and periodically while the app is open.
+function checkDueSips() {
+  if (!currentUser) return;
+  const u = getUserData(currentUser);
+  const now = new Date();
+  let ranAny = false;
+  (u.sips || []).filter(s => s.status === 'active').forEach(sip => {
+    if (!sip.nextRun) sip.nextRun = getNextSipDate(sip.freq, now).toISOString();
+    let next = new Date(sip.nextRun);
+    let guard = 0;
+    while (next <= now && guard < 24) { // cap catch-up so a long-closed app can't run away
+      const ok = runSipInstallment(u, sip);
+      if (ok) { ranAny = true; showToast(`🔄 SIP: Bought units of ${sip.sym} @ ₹${fmt(prices[sip.sym])}`, 'success'); }
+      else showToast(`⚠️ SIP for ${sip.sym} skipped — insufficient balance`, 'error');
+      next = getNextSipDate(sip.freq, next);
+      guard++;
+    }
+    sip.nextRun = next.toISOString();
+  });
+  if (ranAny) { saveUserData(currentUser, u); updateNavBalance(); }
+  else saveUserData(currentUser, u); // still persist nextRun bookkeeping
+  if (document.getElementById('page-sip')?.classList.contains('active')) renderSipPage();
 }
 
 function toggleSip(sipId) {
@@ -2745,9 +2764,8 @@ function toggleSip(sipId) {
   const sip = (u.sips || []).find(s => s.id === sipId);
   if (!sip) return;
   sip.status = sip.status === 'active' ? 'paused' : 'active';
+  if (sip.status === 'active') sip.nextRun = getNextSipDate(sip.freq, new Date()).toISOString(); // resume fresh, no backdated catch-up
   saveUserData(currentUser, u);
-  if (sip.status === 'active') scheduleSip(sipId, sip.freq);
-  else { clearInterval(sipTimers[sipId]); delete sipTimers[sipId]; }
   showToast(`SIP ${sip.sym} ${sip.status === 'active' ? '▶ Resumed' : '⏸ Paused'}`, 'success');
   renderSipPage();
 }
@@ -2756,21 +2774,27 @@ function deleteSip(sipId) {
   const u = getUserData(currentUser);
   u.sips = (u.sips || []).filter(s => s.id !== sipId);
   saveUserData(currentUser, u);
-  clearInterval(sipTimers[sipId]);
-  delete sipTimers[sipId];
   showToast('SIP cancelled', 'error');
   renderSipPage();
 }
 
 function triggerSipNow(sipId) {
-  executeSipInstallment(sipId);
-  showToast('Manual SIP installment triggered!', 'success');
+  const u = getUserData(currentUser);
+  const sip = (u.sips || []).find(s => s.id === sipId);
+  if (!sip || sip.status !== 'active') return;
+  const ok = runSipInstallment(u, sip);
+  sip.nextRun = getNextSipDate(sip.freq, new Date()).toISOString();
+  saveUserData(currentUser, u);
+  if (ok) showToast('Manual SIP installment triggered!', 'success');
+  else showToast(`⚠️ SIP for ${sip.sym} skipped — insufficient balance`, 'error');
+  renderSipPage();
+  updateNavBalance();
 }
 
 function restoreSips() {
   if (!currentUser) return;
-  const u = getUserData(currentUser);
-  (u.sips || []).filter(s => s.status === 'active').forEach(s => scheduleSip(s.id, s.freq));
+  checkDueSips();
+  setInterval(checkDueSips, 60000); // light real-time check, catches day rollovers while app stays open
 }
 
 function renderSipPage() {
@@ -2824,7 +2848,8 @@ function renderSipPage() {
         <button onclick="triggerSipNow(${sip.id})" style="padding:8px 14px;border-radius:8px;border:1px solid var(--blue);background:rgba(59,130,246,0.12);color:var(--blue);font-weight:700;font-size:12px;cursor:pointer;font-family:'Inter',sans-serif">▶ Invest Now</button>
         <button onclick="toggleSip(${sip.id})" style="padding:8px 14px;border-radius:8px;border:1px solid ${sip.status==='active'?'var(--gold)':'var(--green)'};background:${sip.status==='active'?'rgba(245,158,11,0.12)':'rgba(0,208,156,0.12)'};color:${sip.status==='active'?'var(--gold)':'var(--green)'};font-weight:700;font-size:12px;cursor:pointer;font-family:'Inter',sans-serif">${sip.status==='active'?'⏸ Pause':'▶ Resume'}</button>
         <button onclick="deleteSip(${sip.id})" style="padding:8px 14px;border-radius:8px;border:1px solid var(--red);background:rgba(255,77,109,0.1);color:var(--red);font-weight:700;font-size:12px;cursor:pointer;font-family:'Inter',sans-serif">✕ Cancel</button>
-        ${sip.history.length > 0 ? `<span style="padding:8px 14px;font-size:11px;color:var(--text3)">Last run: ${new Date(sip.lastRun).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})}</span>` : ''}
+        ${sip.history.length > 0 ? `<span style="padding:8px 14px;font-size:11px;color:var(--text3)">Last: ${new Date(sip.lastRun).toLocaleDateString('en-IN',{day:'2-digit',month:'short'})}</span>` : ''}
+        ${sip.status === 'active' && sip.nextRun ? `<span style="padding:8px 14px;font-size:11px;color:var(--text2);font-weight:600">📅 Next: ${new Date(sip.nextRun).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}</span>` : ''}
       </div>
     </div>`;
   }).join('');
@@ -2845,13 +2870,51 @@ const FUTURES_CONTRACTS = [
 
 let selectedDerivContract = null;
 let selectedDerivDirection = 'LONG';
-let selectedDerivTenureDays = 30;
 
 function getFuturesPrice(contract) {
   return prices[contract.underlying] * (1 + contract.premium);
 }
 
-// Trader-chosen expiry/tenure — see selectDerivTenure() / getSelectedExpiryDate()
+// ─── Daily Mark-to-Market ───────────────────────────────────────────────────
+// Real futures settle gains/losses into your account every trading day, not just
+// when you close. We simulate that: each real calendar day, open positions are
+// "marked" against their last settle price, cash moves accordingly, and the
+// position's cost basis rolls forward to today's price.
+function dayKey(d) { return new Date(d).toISOString().slice(0, 10); }
+
+function runDailyMTM() {
+  if (!currentUser) return;
+  const u = getUserData(currentUser);
+  const today = dayKey(new Date());
+  let changed = false;
+  (u.derivatives || []).filter(p => p.status === 'OPEN').forEach(p => {
+    if (!p.lastSettleDate) { p.lastSettleDate = dayKey(p.openedAt); p.lastSettlePrice = p.entryPrice; }
+    if (p.lastSettleDate === today) return;
+    const c = FUTURES_CONTRACTS.find(x => x.id === p.contractId);
+    if (!c) return;
+    const curPrice = getFuturesPrice(c);
+    const pnl = (curPrice - p.lastSettlePrice) * p.lots * p.lotSize * (p.direction === 'LONG' ? 1 : -1);
+    u.cash += pnl;
+    p.mtmTotal = (p.mtmTotal || 0) + pnl;
+    p.lastSettlePrice = curPrice;
+    p.lastSettleDate = today;
+    u.trades.unshift({ sym: p.underlying, type: 'FUT-MTM', qty: p.lots * p.lotSize, price: curPrice, total: pnl, time: new Date().toISOString() });
+    changed = true;
+  });
+  if (changed) {
+    saveUserData(currentUser, u);
+    updateNavBalance();
+    showToast('📊 Daily settlement applied to your open futures positions', 'success');
+    if (document.getElementById('page-derivatives')?.classList.contains('active')) renderDerivativesPage();
+  }
+}
+
+function startMtmWatcher() {
+  runDailyMTM();
+  setInterval(runDailyMTM, 60000); // light check, catches real day rollovers while app stays open
+}
+
+// Fixed, exchange-style monthly expiries — last Thursday of the month, like real NSE F&O
 function daysToExpiry(expiryDate) {
   const ms = new Date(expiryDate) - new Date();
   return Math.max(0, Math.ceil(ms / (1000 * 60 * 60 * 24)));
@@ -2861,41 +2924,36 @@ function fmtExpiry(expiryDate) {
   return new Date(expiryDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-function selectDerivTenure(days, btn) {
-  document.querySelectorAll('#derivTenureBtns .sip-freq-btn').forEach(b => b.classList.remove('active-freq'));
-  btn.classList.add('active-freq');
-  selectedDerivTenureDays = days;
-  const customInput = document.getElementById('derivCustomExpiry');
-  if (days === 'custom') {
-    customInput.style.display = 'block';
-    const min = new Date(); min.setDate(min.getDate() + 1);
-    customInput.min = min.toISOString().slice(0, 10);
-    if (!customInput.value) customInput.value = min.toISOString().slice(0, 10);
-  } else {
-    customInput.style.display = 'none';
+function getAvailableExpiries() {
+  function lastThursday(year, month) {
+    const d = new Date(year, month + 1, 0); // last calendar day of month
+    const dow = d.getDay();
+    d.setDate(d.getDate() - ((dow - 4 + 7) % 7));
+    d.setHours(15, 30, 0, 0);
+    return d;
   }
-  updateSelectedExpiryDisplay();
+  const now = new Date();
+  const list = [];
+  for (let i = 0; list.length < 3; i++) {
+    const exp = lastThursday(now.getFullYear(), now.getMonth() + i);
+    if (exp > now) list.push(exp);
+  }
+  return list;
 }
 
-function onDerivCustomExpiryChange() { updateSelectedExpiryDisplay(); }
+function populateExpirySelect(selectId) {
+  const el = document.getElementById(selectId);
+  const expiries = getAvailableExpiries();
+  el.innerHTML = expiries.map((e, i) => `<option value="${e.toISOString()}">${fmtExpiry(e)} (${daysToExpiry(e)}d)${i===0?' — near month':''}</option>`).join('');
+}
 
 function getSelectedExpiryDate() {
-  if (selectedDerivTenureDays === 'custom') {
-    const v = document.getElementById('derivCustomExpiry').value;
-    return v ? new Date(v + 'T15:30:00') : null;
-  }
-  const d = new Date();
-  d.setDate(d.getDate() + selectedDerivTenureDays);
-  d.setHours(15, 30, 0, 0);
-  return d;
+  const v = document.getElementById('derivExpirySelect')?.value;
+  return v ? new Date(v) : null;
 }
 
-function updateSelectedExpiryDisplay() {
-  const exp = getSelectedExpiryDate();
-  const el = document.getElementById('derivExpiry');
-  if (!el) return;
-  el.textContent = exp ? `${fmtExpiry(exp)} (${daysToExpiry(exp)}d)` : 'Pick a date';
-  el.style.color = exp && daysToExpiry(exp) <= 3 ? 'var(--red)' : 'var(--text)';
+function onDerivExpiryChange() {
+  updateDerivProjection();
 }
 
 function applyDerivSettings(settings) {
@@ -2927,13 +2985,15 @@ function expireContractLocally(contractId) {
   const exitPrice = getFuturesPrice(c);
   let anyClosed = false;
   (u.derivatives || []).filter(p => p.status === 'OPEN' && p.contractId === contractId).forEach(p => {
-    const pnl = (exitPrice - p.entryPrice) * p.lots * p.lotSize * (p.direction === 'LONG' ? 1 : -1);
-    u.cash += p.margin + pnl;
+    const basisPrice = p.lastSettlePrice != null ? p.lastSettlePrice : p.entryPrice;
+    const finalLegPnl = (exitPrice - basisPrice) * p.lots * p.lotSize * (p.direction === 'LONG' ? 1 : -1);
+    const totalPnl = (p.mtmTotal || 0) + finalLegPnl;
+    u.cash += p.margin + finalLegPnl;
     p.status = 'CLOSED';
     p.exitPrice = exitPrice;
-    p.realizedPnl = pnl;
+    p.realizedPnl = totalPnl;
     p.closedAt = new Date().toISOString();
-    u.trades.unshift({ sym: p.underlying, type: 'FUT-EXPIRE', qty: p.lots * p.lotSize, price: exitPrice, total: pnl, time: new Date().toISOString() });
+    u.trades.unshift({ sym: p.underlying, type: 'FUT-EXPIRE', qty: p.lots * p.lotSize, price: exitPrice, total: finalLegPnl, time: new Date().toISOString() });
     anyClosed = true;
   });
   if (anyClosed) {
@@ -2949,17 +3009,14 @@ function openDerivModal() {
   if (!FO_ENABLED) return showToast('⏸ F&O trading is currently disabled by your teacher', 'error');
   selectedDerivContract = null;
   selectedDerivDirection = 'LONG';
-  selectedDerivTenureDays = 30;
   document.getElementById('derivLotsInput').value = 1;
   document.getElementById('derivSelectedInfo').style.display = 'none';
   document.getElementById('derivTotalMargin').textContent = '—';
   document.getElementById('derivBalAfter').textContent = '—';
   document.getElementById('derivBtnLong').classList.add('active-long');
   document.getElementById('derivBtnShort').classList.remove('active-short');
-  document.getElementById('derivCustomExpiry').style.display = 'none';
-  document.getElementById('derivCustomExpiry').value = '';
-  document.querySelectorAll('#derivTenureBtns .sip-freq-btn').forEach(b => b.classList.remove('active-freq'));
-  document.querySelector('#derivTenureBtns [data-days="30"]').classList.add('active-freq');
+  document.getElementById('derivExecuteBtn').textContent = 'Place Buy Order 📈';
+  document.getElementById('derivExecuteBtn').className = 'execute-btn buy';
   renderDerivContractPicker();
   document.getElementById('derivModal').classList.remove('hidden');
 }
@@ -2983,12 +3040,10 @@ function selectDerivContract(id) {
   renderDerivContractPicker();
   const c = FUTURES_CONTRACTS.find(x => x.id === id);
   const futPrice = getFuturesPrice(c);
-  const marginPerLot = futPrice * c.lotSize * MARGIN_PCT;
   document.getElementById('derivSelectedInfo').style.display = 'block';
   document.getElementById('derivFutPrice').textContent = `₹${fmt(futPrice)}`;
   document.getElementById('derivLotSize').textContent = c.lotSize;
-  document.getElementById('derivMarginPerLot').textContent = `₹${fmt(marginPerLot)}`;
-  updateSelectedExpiryDisplay();
+  populateExpirySelect('derivExpirySelect');
   updateDerivProjection();
 }
 
@@ -2996,7 +3051,7 @@ function setDerivDirection(dir) {
   selectedDerivDirection = dir;
   document.getElementById('derivBtnLong').classList.toggle('active-long', dir === 'LONG');
   document.getElementById('derivBtnShort').classList.toggle('active-short', dir === 'SHORT');
-  document.getElementById('derivExecuteBtn').textContent = dir === 'LONG' ? 'Open Long Position 📈' : 'Open Short Position 📉';
+  document.getElementById('derivExecuteBtn').textContent = dir === 'LONG' ? 'Place Buy Order 📈' : 'Place Sell Order 📉';
   document.getElementById('derivExecuteBtn').className = dir === 'LONG' ? 'execute-btn buy' : 'execute-btn sell';
   updateDerivProjection();
 }
@@ -3043,6 +3098,9 @@ function openDerivPosition() {
     direction: selectedDerivDirection,
     lots,
     entryPrice: futPrice,
+    lastSettlePrice: futPrice,
+    lastSettleDate: dayKey(new Date()),
+    mtmTotal: 0,
     margin,
     expiry: expiry.toISOString(),
     openedAt: new Date().toISOString(),
@@ -3065,15 +3123,17 @@ function closeDerivPosition(id) {
   if (!pos) return;
   const c = FUTURES_CONTRACTS.find(x => x.id === pos.contractId);
   const exitPrice = getFuturesPrice(c);
-  const pnl = (exitPrice - pos.entryPrice) * pos.lots * pos.lotSize * (pos.direction === 'LONG' ? 1 : -1);
-  u.cash += pos.margin + pnl;
+  const basisPrice = pos.lastSettlePrice != null ? pos.lastSettlePrice : pos.entryPrice;
+  const finalLegPnl = (exitPrice - basisPrice) * pos.lots * pos.lotSize * (pos.direction === 'LONG' ? 1 : -1);
+  const totalPnl = (pos.mtmTotal || 0) + finalLegPnl; // everything already settled via daily MTM + today's final leg
+  u.cash += pos.margin + finalLegPnl;
   pos.status = 'CLOSED';
   pos.exitPrice = exitPrice;
-  pos.realizedPnl = pnl;
+  pos.realizedPnl = totalPnl;
   pos.closedAt = new Date().toISOString();
-  u.trades.unshift({ sym: pos.underlying, type: 'FUT-CLOSE', qty: pos.lots * pos.lotSize, price: exitPrice, total: pnl, time: new Date().toISOString() });
+  u.trades.unshift({ sym: pos.underlying, type: 'FUT-CLOSE', qty: pos.lots * pos.lotSize, price: exitPrice, total: finalLegPnl, time: new Date().toISOString() });
   saveUserData(currentUser, u);
-  showToast(`${pnl >= 0 ? '✅' : '⚠️'} Position closed: ${pnl >= 0 ? '+' : ''}₹${fmt(pnl)} P&L`, pnl >= 0 ? 'success' : 'error');
+  showToast(`${totalPnl >= 0 ? '✅' : '⚠️'} Position closed: ${totalPnl >= 0 ? '+' : ''}₹${fmt(totalPnl)} total P&L`, totalPnl >= 0 ? 'success' : 'error');
   renderDerivativesPage();
   updateNavBalance();
 }
@@ -3089,12 +3149,15 @@ function renderDerivativesPage() {
   const openHtml = open.map(p => {
     const c = FUTURES_CONTRACTS.find(x => x.id === p.contractId);
     const ltp = getFuturesPrice(c);
-    const pnl = (ltp - p.entryPrice) * p.lots * p.lotSize * (p.direction === 'LONG' ? 1 : -1);
-    unrealizedTotal += pnl;
+    const basisPrice = p.lastSettlePrice != null ? p.lastSettlePrice : p.entryPrice;
+    const todayMtm = (ltp - basisPrice) * p.lots * p.lotSize * (p.direction === 'LONG' ? 1 : -1);
+    const totalPnl = (p.mtmTotal || 0) + todayMtm;
+    unrealizedTotal += todayMtm;
     const positionValue = ltp * p.lots * p.lotSize;
-    const marginCall = pnl < 0 && Math.abs(pnl) > p.margin * (1 - MAINTENANCE_PCT / MARGIN_PCT);
+    const marginCall = todayMtm < 0 && Math.abs(todayMtm) > p.margin * (1 - MAINTENANCE_PCT / MARGIN_PCT);
     p.marginCallFor = marginCall;
-    const dir = pnl >= 0;
+    const dir = todayMtm >= 0;
+    const totalDir = totalPnl >= 0;
     const dte = p.expiry ? daysToExpiry(p.expiry) : null;
     const isExpired = p.expiry ? new Date(p.expiry) <= new Date() : false;
     return `<div class="sip-card">
@@ -3113,9 +3176,10 @@ function renderDerivativesPage() {
         <div class="sip-stat"><div class="sip-stat-label">Entry Price</div><div class="sip-stat-val">₹${fmt(p.entryPrice)}</div></div>
         <div class="sip-stat"><div class="sip-stat-label">LTP</div><div class="sip-stat-val">₹${fmt(ltp)}</div></div>
         <div class="sip-stat"><div class="sip-stat-label">Margin Used</div><div class="sip-stat-val">₹${fmt(p.margin)}</div></div>
-        <div class="sip-stat"><div class="sip-stat-label">Unrealized P&L</div><div class="sip-stat-val" style="color:${dir?'var(--green)':'var(--red)'}">${dir?'+':''}₹${fmt(pnl)}</div></div>
+        <div class="sip-stat"><div class="sip-stat-label">Today's M2M</div><div class="sip-stat-val" style="color:${dir?'var(--green)':'var(--red)'}">${dir?'+':''}₹${fmt(todayMtm)}</div></div>
+        <div class="sip-stat"><div class="sip-stat-label">Total P&L (since entry)</div><div class="sip-stat-val" style="color:${totalDir?'var(--green)':'var(--red)'}">${totalDir?'+':''}₹${fmt(totalPnl)}</div></div>
         <div class="sip-stat"><div class="sip-stat-label">Position Value</div><div class="sip-stat-val">₹${fmt(positionValue)}</div></div>
-        <div class="sip-stat"><div class="sip-stat-label">Expiry (Tenure)</div><div class="sip-stat-val" style="color:${isExpired?'var(--red)':(dte!==null&&dte<=3?'var(--gold)':'var(--text)')}">${p.expiry ? `${fmtExpiry(p.expiry)} (${dte}d)` : '—'}</div></div>
+        <div class="sip-stat"><div class="sip-stat-label">Expiry</div><div class="sip-stat-val" style="color:${isExpired?'var(--red)':(dte!==null&&dte<=3?'var(--gold)':'var(--text)')}">${p.expiry ? `${fmtExpiry(p.expiry)} (${dte}d)` : '—'}</div></div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button onclick="closeDerivPosition(${p.id})" style="padding:8px 14px;border-radius:8px;border:1px solid var(--red);background:rgba(255,77,109,0.1);color:var(--red);font-weight:700;font-size:12px;cursor:pointer;font-family:'Inter',sans-serif">✕ Square Off</button>
@@ -3127,7 +3191,7 @@ function renderDerivativesPage() {
   document.getElementById('derivStats').innerHTML = `
     <div class="stat-card"><div class="stat-label">Open Positions</div><div class="stat-val" style="font-size:28px">${open.length}</div><div class="stat-sub">${positions.length} total</div></div>
     <div class="stat-card"><div class="stat-label">Margin Blocked</div><div class="stat-val" style="font-size:22px">₹${fmt(marginUsed)}</div><div class="stat-sub">across open positions</div></div>
-    <div class="stat-card"><div class="stat-label">Unrealized P&L</div><div class="stat-val" style="font-size:22px;color:${unrealizedTotal>=0?'var(--green)':'var(--red)'}">${unrealizedTotal>=0?'+':''}₹${fmt(unrealizedTotal)}</div><div class="stat-sub">mark-to-market</div></div>
+    <div class="stat-card"><div class="stat-label">Today's M2M</div><div class="stat-val" style="font-size:22px;color:${unrealizedTotal>=0?'var(--green)':'var(--red)'}">${unrealizedTotal>=0?'+':''}₹${fmt(unrealizedTotal)}</div><div class="stat-sub">settles into cash daily</div></div>
     <div class="stat-card"><div class="stat-label">Cash Available</div><div class="stat-val" style="font-size:22px">₹${fmt(u.cash)}</div><div class="stat-sub">not in margin</div></div>`;
 
   saveUserData(currentUser, u);
@@ -3162,9 +3226,8 @@ function renderDerivativesPage() {
 // component driven by each instrument's simulated volatility, so premiums behave
 // sensibly (higher for OTM near expiry with high vol, decay as expiry approaches).
 let selectedOptContract = null;
-let selectedOptType = 'CALL';
+let selectedOptType = null;
 let selectedOptStrike = null;
-let selectedOptTenureDays = 30;
 
 function getStrikeInterval(price) {
   if (price < 100) return 5;
@@ -3178,7 +3241,7 @@ function getAvailableStrikes(underlying) {
   const price = prices[underlying];
   const interval = getStrikeInterval(price);
   const atm = Math.round(price / interval) * interval;
-  return [-2, -1, 0, 1, 2].map(n => atm + n * interval);
+  return [-3, -2, -1, 0, 1, 2, 3].map(n => atm + n * interval);
 }
 
 function calcOptionPremium(underlying, strike, optType, daysToExp) {
@@ -3210,19 +3273,14 @@ function switchFoTab(tab) {
 function openOptModal() {
   if (!FO_ENABLED) return showToast('⏸ F&O trading is currently disabled by your teacher', 'error');
   selectedOptContract = null;
-  selectedOptType = 'CALL';
+  selectedOptType = null;
   selectedOptStrike = null;
-  selectedOptTenureDays = 30;
   document.getElementById('optLotsInput').value = 1;
   document.getElementById('optSelectedInfo').style.display = 'none';
-  document.getElementById('optBtnCall').classList.add('active-long');
-  document.getElementById('optBtnPut').classList.remove('active-short');
-  document.getElementById('optExecuteBtn').textContent = 'Buy Option 🎯';
+  document.getElementById('optOrderDetails').style.display = 'none';
+  document.getElementById('optExecuteBtn').textContent = 'Select an option above';
   document.getElementById('optExecuteBtn').className = 'execute-btn buy';
-  document.getElementById('optCustomExpiry').style.display = 'none';
-  document.getElementById('optCustomExpiry').value = '';
-  document.querySelectorAll('#optTenureBtns .sip-freq-btn').forEach(b => b.classList.remove('active-freq'));
-  document.querySelector('#optTenureBtns [data-days="30"]').classList.add('active-freq');
+  document.getElementById('optExecuteBtn').disabled = true;
   renderOptContractPicker();
   document.getElementById('optModal').classList.remove('hidden');
 }
@@ -3243,72 +3301,57 @@ function renderOptContractPicker() {
 
 function selectOptContract(id) {
   selectedOptContract = id;
+  selectedOptType = null;
+  selectedOptStrike = null;
   renderOptContractPicker();
   const c = FUTURES_CONTRACTS.find(x => x.id === id);
   document.getElementById('optSelectedInfo').style.display = 'block';
   document.getElementById('optSpotPrice').textContent = `₹${fmt(prices[c.underlying])}`;
-  const strikes = getAvailableStrikes(c.underlying);
-  selectedOptStrike = strikes[2]; // ATM
-  renderOptStrikes();
-  updateOptProjection();
+  document.getElementById('optOrderDetails').style.display = 'none';
+  document.getElementById('optExecuteBtn').textContent = 'Select an option above';
+  document.getElementById('optExecuteBtn').disabled = true;
+  populateExpirySelect('optExpirySelect');
+  renderOptionChain();
 }
 
-function renderOptStrikes() {
+function onOptExpiryChange() {
+  renderOptionChain();
+  if (selectedOptStrike != null) updateOptProjection();
+}
+
+function renderOptionChain() {
   if (!selectedOptContract) return;
   const c = FUTURES_CONTRACTS.find(x => x.id === selectedOptContract);
+  const expiry = document.getElementById('optExpirySelect').value;
+  if (!expiry) return;
+  const dte = daysToExpiry(expiry);
   const strikes = getAvailableStrikes(c.underlying);
   const spot = prices[c.underlying];
-  document.getElementById('optStrikeList').innerHTML = strikes.map(k => {
-    let tag;
-    if (selectedOptType === 'CALL') tag = k < spot ? 'ITM' : k > spot ? 'OTM' : 'ATM';
-    else tag = k > spot ? 'ITM' : k < spot ? 'OTM' : 'ATM';
-    return `<div class="strike-chip${selectedOptStrike === k ? ' selected' : ''}" onclick="selectOptStrike(${k})">₹${fmt(k)}<span class="strike-tag">${tag}</span></div>`;
+  const interval = getStrikeInterval(spot);
+  document.getElementById('optChainBody').innerHTML = strikes.map(k => {
+    const callPrem = calcOptionPremium(c.underlying, k, 'CALL', dte);
+    const putPrem = calcOptionPremium(c.underlying, k, 'PUT', dte);
+    const isATM = Math.abs(k - spot) < interval / 2;
+    const callSel = selectedOptStrike === k && selectedOptType === 'CALL';
+    const putSel = selectedOptStrike === k && selectedOptType === 'PUT';
+    return `<tr${isATM ? ' class="chain-atm-row"' : ''}>
+      <td class="chain-cell chain-call${callSel ? ' chain-selected' : ''}" onclick="selectChainOption(${k},'CALL')">₹${fmt(callPrem)}</td>
+      <td class="chain-strike">${fmt(k)}${isATM ? ' <span style="font-size:9px;color:var(--blue)">ATM</span>' : ''}</td>
+      <td class="chain-cell chain-put${putSel ? ' chain-selected' : ''}" onclick="selectChainOption(${k},'PUT')">₹${fmt(putPrem)}</td>
+    </tr>`;
   }).join('');
 }
 
-function selectOptStrike(k) {
-  selectedOptStrike = k;
-  renderOptStrikes();
-  updateOptProjection();
-}
-
-function setOptType(type) {
+function selectChainOption(strike, type) {
+  selectedOptStrike = strike;
   selectedOptType = type;
-  document.getElementById('optBtnCall').classList.toggle('active-long', type === 'CALL');
-  document.getElementById('optBtnPut').classList.toggle('active-short', type === 'PUT');
+  renderOptionChain();
+  document.getElementById('optOrderDetails').style.display = 'block';
+  document.getElementById('optSelectedLabel').textContent = `${FUTURES_CONTRACTS.find(x=>x.id===selectedOptContract).underlying} ${fmt(strike)} ${type}`;
+  document.getElementById('optExecuteBtn').disabled = false;
   document.getElementById('optExecuteBtn').textContent = type === 'CALL' ? 'Buy CALL Option 📈' : 'Buy PUT Option 📉';
   document.getElementById('optExecuteBtn').className = type === 'CALL' ? 'execute-btn buy' : 'execute-btn sell';
-  renderOptStrikes();
   updateOptProjection();
-}
-
-function selectOptTenure(days, btn) {
-  document.querySelectorAll('#optTenureBtns .sip-freq-btn').forEach(b => b.classList.remove('active-freq'));
-  btn.classList.add('active-freq');
-  selectedOptTenureDays = days;
-  const ci = document.getElementById('optCustomExpiry');
-  if (days === 'custom') {
-    ci.style.display = 'block';
-    const min = new Date(); min.setDate(min.getDate() + 1);
-    ci.min = min.toISOString().slice(0, 10);
-    if (!ci.value) ci.value = min.toISOString().slice(0, 10);
-  } else {
-    ci.style.display = 'none';
-  }
-  updateOptProjection();
-}
-
-function onOptCustomExpiryChange() { updateOptProjection(); }
-
-function getOptSelectedExpiryDate() {
-  if (selectedOptTenureDays === 'custom') {
-    const v = document.getElementById('optCustomExpiry').value;
-    return v ? new Date(v + 'T15:30:00') : null;
-  }
-  const d = new Date();
-  d.setDate(d.getDate() + selectedOptTenureDays);
-  d.setHours(15, 30, 0, 0);
-  return d;
 }
 
 function changeOptLots(delta) {
@@ -3322,13 +3365,10 @@ document.addEventListener('input', e => { if (e.target.id === 'optLotsInput') up
 function updateOptProjection() {
   if (!selectedOptContract || selectedOptStrike == null) return;
   const c = FUTURES_CONTRACTS.find(x => x.id === selectedOptContract);
-  const expiry = getOptSelectedExpiryDate();
+  const expiryVal = document.getElementById('optExpirySelect').value;
   const lots = Math.max(1, parseInt(document.getElementById('optLotsInput').value) || 1);
-  if (!expiry) {
-    ['optPremiumPerLot','optTotalPremium','optBreakeven','optBalAfter'].forEach(id => document.getElementById(id).textContent = '—');
-    return;
-  }
-  const dte = daysToExpiry(expiry);
+  if (!expiryVal) return;
+  const dte = daysToExpiry(expiryVal);
   const premium = calcOptionPremium(c.underlying, selectedOptStrike, selectedOptType, dte);
   const perLot = premium * c.lotSize;
   const total = perLot * lots;
@@ -3344,9 +3384,10 @@ function updateOptProjection() {
 
 function openOptPosition() {
   if (!selectedOptContract) return showToast('Please select an underlying', 'error');
-  if (selectedOptStrike == null) return showToast('Please select a strike price', 'error');
-  const expiry = getOptSelectedExpiryDate();
-  if (!expiry) return showToast('Please pick an expiry date', 'error');
+  if (selectedOptStrike == null || !selectedOptType) return showToast('Please select an option from the chain', 'error');
+  const expiryVal = document.getElementById('optExpirySelect').value;
+  if (!expiryVal) return showToast('Please pick an expiry date', 'error');
+  const expiry = new Date(expiryVal);
   if (expiry <= new Date()) return showToast('Expiry must be in the future', 'error');
   const c = FUTURES_CONTRACTS.find(x => x.id === selectedOptContract);
   const lots = Math.max(1, parseInt(document.getElementById('optLotsInput').value) || 1);
@@ -3508,6 +3549,7 @@ if (savedSession && getUsers()[savedSession]) {
   startApp();
   requestNotificationPermission();
   restoreSips();
+  startMtmWatcher();
 }
 
 // Price updates every 3 seconds
