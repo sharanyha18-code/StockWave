@@ -1085,11 +1085,21 @@ function handleMarketEvent(mode) {
   const effects = { bull: 0.03, bear: -0.02, crash: -0.08, normal: 0 };
   const effect = effects[mode] || 0;
   if (mode === 'paused') { showToast('⏸ Teacher has paused trading!', 'error'); return; }
+  if (mode === 'normal') {
+    // Reset all trends to fresh random ones
+    INSTRUMENTS.forEach(inst => assignNewTrend(inst.sym, inst.vol));
+    showToast('✅ Market back to normal', 'success');
+    return;
+  }
   if (effect !== 0) {
     INSTRUMENTS.forEach(inst => {
       prices[inst.sym] = parseFloat((prices[inst.sym] * (1 + effect * (0.5 + Math.random()))).toFixed(2));
+      // Set market-wide trend in the event's direction so the move continues visibly
+      const direction = effect > 0 ? 1 : -1;
+      const strength = mode === 'crash' ? 8 + Math.random() * 4 : 4 + Math.random() * 3;
+      priceTrends[inst.sym] = { drift: direction * (strength / 100) / 200, ticksLeft: 100 + Math.floor(Math.random() * 100) };
     });
-    const labels = { bull:'🚀 Bull Run! All prices surging!', bear:'📉 Bear Market! Prices falling!', crash:'💥 Market Crash! Massive selloff!', normal:'✅ Market back to normal' };
+    const labels = { bull:'🚀 Bull Run! All prices surging!', bear:'📉 Bear Market! Prices falling!', crash:'💥 Market Crash! Massive selloff!' };
     showToast(labels[mode] || 'Market update!', effect > 0 ? 'success' : 'error');
   }
 }
@@ -1257,11 +1267,38 @@ function generateHistory(basePrice, vol) {
 }
 
 // ─── PRICE SIMULATION ─────────────────────────────────────────────────────────
+// ─── PRICE ENGINE: trends + noise ────────────────────────────────────────────
+// Each stock carries a hidden trend (drift per tick) lasting 5–15 minutes, so over
+// any 10-minute window a stock visibly rises or falls (roughly 3–8%) instead of
+// jittering in place. Small random noise sits on top for realism.
+let priceTrends = {};
+
+function assignNewTrend(sym, vol) {
+  const r = Math.random();
+  // 45% uptrend, 45% downtrend, 10% sideways
+  let direction;
+  if (r < 0.45) direction = 1;
+  else if (r < 0.9) direction = -1;
+  else direction = 0;
+  // Target: 4–9% move over ~10 min (200 ticks at 3s) for trending stocks, scaled by stock vol
+  const targetPctPer10Min = direction === 0 ? 0 : (4 + Math.random() * 5) * (0.7 + (vol || 1.5) / 5);
+  const driftPerTick = direction * (targetPctPer10Min / 100) / 200;
+  const durationTicks = 150 + Math.floor(Math.random() * 150); // 7.5–15 minutes, so a trend usually spans a full window
+  priceTrends[sym] = { drift: driftPerTick, ticksLeft: durationTicks };
+}
+
 function simulatePrices() {
   INSTRUMENTS.forEach(inst => {
-    const maxMove = inst.vol / 100;
-    const change = (Math.random() - 0.498) * maxMove;
+    let trend = priceTrends[inst.sym];
+    if (!trend || trend.ticksLeft <= 0) { assignNewTrend(inst.sym, inst.vol); trend = priceTrends[inst.sym]; }
+    trend.ticksLeft--;
+    const noise = (Math.random() - 0.5) * (inst.vol / 100) * 0.6; // small wobble on top of the trend
+    const change = trend.drift + noise;
     prices[inst.sym] = parseFloat((prices[inst.sym] * (1 + change)).toFixed(2));
+    // Keep prices from collapsing or exploding beyond teaching-useful bounds
+    const floor = inst.price * 0.4, ceil = inst.price * 2.5;
+    if (prices[inst.sym] < floor) { prices[inst.sym] = floor; assignNewTrend(inst.sym, inst.vol); }
+    if (prices[inst.sym] > ceil) { prices[inst.sym] = ceil; assignNewTrend(inst.sym, inst.vol); }
     priceHistory[inst.sym].push(prices[inst.sym]);
     if (priceHistory[inst.sym].length > 50) priceHistory[inst.sym].shift();
   });
@@ -2426,9 +2463,18 @@ function generateNewsEvent() {
   activeNews.unshift(event);
   if (activeNews.length > 15) activeNews.pop();
 
-  // Impact prices
+  // Impact prices: an immediate visible jolt + set the stock's ongoing trend in the news direction
   event.syms.forEach(sym => {
-    if (prices[sym]) prices[sym] = parseFloat((prices[sym] * (1 + event.effect * (0.6 + Math.random() * 0.8))).toFixed(2));
+    if (!prices[sym]) return;
+    const jolt = event.effect * (1.5 + Math.random() * 1.0); // 1.5–2.5× stated effect, clearly visible
+    prices[sym] = parseFloat((prices[sym] * (1 + jolt)).toFixed(2));
+    // Follow-through: trend continues in the news direction for ~5–10 minutes
+    if (event.effect !== 0) {
+      const inst = INSTRUMENTS.find(i => i.sym === sym);
+      const direction = event.effect > 0 ? 1 : -1;
+      const targetPctPer10Min = (4 + Math.random() * 4) * (0.7 + ((inst?.vol) || 1.5) / 5);
+      priceTrends[sym] = { drift: direction * (targetPctPer10Min / 100) / 200, ticksLeft: 100 + Math.floor(Math.random() * 100) };
+    }
   });
 
   const icon = event.impact === 'positive' ? '📈' : event.impact === 'negative' ? '📉' : 'ℹ️';
