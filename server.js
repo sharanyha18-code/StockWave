@@ -48,9 +48,20 @@ const userSchema = new mongoose.Schema({
   watchlist: { type: Array, default: [] },
   amo: { type: Array, default: [] },
   portfolioHistory: { type: Array, default: [50000] },
+  derivatives: { type: Array, default: [] },
+  options: { type: Array, default: [] },
   createdAt: { type: Date, default: Date.now }
 });
 const User = mongoose.model('User', userSchema);
+
+// F&O Settings Schema — single document holding teacher-controlled F&O configuration
+const derivSettingsSchema = new mongoose.Schema({
+  key: { type: String, unique: true, default: 'fo-settings' },
+  enabled: { type: Boolean, default: true },
+  marginPct: { type: Number, default: 20 },
+  contracts: { type: Array, default: [] }
+});
+const DerivSettings = mongoose.model('DerivSettings', derivSettingsSchema);
 
 // Auth middleware
 const auth = (req, res, next) => {
@@ -102,7 +113,7 @@ app.post('/api/login', async (req, res) => {
     const match = await bcrypt.compare(password, user.password);
     if (!match) return res.status(400).json({ error: 'Incorrect password!' });
     const token = jwt.sign({ id: user._id, roll: user.roll, name: user.name }, JWT_SECRET, { expiresIn: '7d' });
-    res.json({ token, user: { name: user.name, roll: user.roll, cash: user.cash, holdings: user.holdings, trades: user.trades, sips: user.sips, alerts: user.alerts, watchlist: user.watchlist, amo: user.amo, portfolioHistory: user.portfolioHistory } });
+    res.json({ token, user: { name: user.name, roll: user.roll, cash: user.cash, holdings: user.holdings, trades: user.trades, sips: user.sips, alerts: user.alerts, watchlist: user.watchlist, amo: user.amo, portfolioHistory: user.portfolioHistory, derivatives: user.derivatives, options: user.options } });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -125,8 +136,11 @@ app.get('/api/user', auth, async (req, res) => {
 // Save user data
 app.post('/api/user/save', auth, async (req, res) => {
   try {
-    const { cash, holdings, trades, sips, alerts, watchlist, amo, portfolioHistory } = req.body;
-    await User.findByIdAndUpdate(req.user.id, { cash, holdings, trades, sips, alerts, watchlist, amo, portfolioHistory });
+    const { cash, holdings, trades, sips, alerts, watchlist, amo, portfolioHistory, derivatives, options } = req.body;
+    const update = { cash, holdings, trades, sips, alerts, watchlist, amo, portfolioHistory };
+    if (derivatives !== undefined) update.derivatives = derivatives;
+    if (options !== undefined) update.options = options;
+    await User.findByIdAndUpdate(req.user.id, update);
     io.emit('leaderboard-update');
     res.json({ success: true });
   } catch(err) { res.status(500).json({ error: err.message }); }
@@ -154,7 +168,7 @@ app.get('/api/admin/students', adminAuth, async (req, res) => {
 // Admin - reset student
 app.post('/api/admin/reset/:roll', adminAuth, async (req, res) => {
   try {
-    await User.findOneAndUpdate({ roll: req.params.roll.toUpperCase() }, { cash: 50000, holdings: {}, trades: [], portfolioHistory: [50000] });
+    await User.findOneAndUpdate({ roll: req.params.roll.toUpperCase() }, { cash: 50000, holdings: {}, trades: [], portfolioHistory: [50000], derivatives: [], options: [], sips: [] });
     io.emit('leaderboard-update');
     res.json({ success: true });
   } catch(err) { res.status(500).json({ error: err.message }); }
@@ -163,7 +177,7 @@ app.post('/api/admin/reset/:roll', adminAuth, async (req, res) => {
 // Admin - reset all
 app.post('/api/admin/reset-all', adminAuth, async (req, res) => {
   try {
-    await User.updateMany({}, { cash: 50000, holdings: {}, trades: [], portfolioHistory: [50000] });
+    await User.updateMany({}, { cash: 50000, holdings: {}, trades: [], portfolioHistory: [50000], derivatives: [], options: [], sips: [] });
     io.emit('force-refresh');
     res.json({ success: true });
   } catch(err) { res.status(500).json({ error: err.message }); }
@@ -198,6 +212,113 @@ app.post('/api/admin/news', adminAuth, (req, res) => {
   const { title, body, impact, syms, effect } = req.body;
   io.emit('custom-news', { title, body, impact, syms, effect, time: new Date(), id: Date.now() });
   res.json({ success: true });
+});
+
+// ─── F&O / DERIVATIVES ROUTES ─────────────────────────────────────────────────
+
+// Helper — load (or create) the single F&O settings document
+async function getDerivSettings() {
+  let s = await DerivSettings.findOne({ key: 'fo-settings' });
+  if (!s) s = await DerivSettings.create({ key: 'fo-settings' });
+  return s;
+}
+
+// Admin - get F&O settings
+app.get('/api/admin/derivatives/settings', adminAuth, async (req, res) => {
+  try {
+    const s = await getDerivSettings();
+    res.json({ enabled: s.enabled, marginPct: s.marginPct, contracts: s.contracts });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
+// Admin - save F&O settings + push live to all students
+app.post('/api/admin/derivatives/settings', adminAuth, async (req, res) => {
+  try {
+    const { enabled, marginPct, contracts } = req.body;
+    const s = await getDerivSettings();
+    if (typeof enabled === 'boolean') s.enabled = enabled;
+    if (typeof marginPct === 'number') s.marginPct = marginPct;
+    if (Array.isArray(contracts)) s.contracts = contracts;
+    await s.save();
+    io.emit('derivatives-settings-update', { enabled: s.enabled, marginPct: s.marginPct, contracts: s.contracts });
+    res.json({ success: true });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
+// Student - read F&O settings (so students who log in later still get them)
+app.get('/api/derivatives/settings', auth, async (req, res) => {
+  try {
+    const s = await getDerivSettings();
+    res.json({ enabled: s.enabled, marginPct: s.marginPct, contracts: s.contracts });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
+// Admin - settle & expire a contract for ALL students (clients do the settlement math)
+app.post('/api/admin/derivatives/expire', adminAuth, (req, res) => {
+  const { contractId } = req.body;
+  if (!contractId) return res.status(400).json({ error: 'contractId required' });
+  io.emit('derivatives-expire', { contractId });
+  res.json({ success: true });
+});
+
+// Admin - force square-off one position for one student
+// Note: prices are simulated client-side, so the server can't compute live P&L.
+// Policy: futures → margin returned to cash, position closed flat (no P&L leg).
+//         options → position closed, premium already spent stays spent.
+app.post('/api/admin/derivatives/squareoff', adminAuth, async (req, res) => {
+  try {
+    const { roll, positionId } = req.body;
+    const user = await User.findOne({ roll: String(roll).toUpperCase() });
+    if (!user) return res.status(404).json({ error: 'Student not found' });
+
+    let found = false;
+    const derivatives = (user.derivatives || []).map(p => {
+      if (p.id === positionId && p.status === 'OPEN') {
+        found = true;
+        user.cash += p.margin || 0;
+        return { ...p, status: 'CLOSED', exitPrice: p.lastSettlePrice ?? p.entryPrice, realizedPnl: p.mtmTotal || 0, closedAt: new Date().toISOString(), forcedByAdmin: true };
+      }
+      return p;
+    });
+    let options = user.options || [];
+    if (!found) {
+      options = options.map(p => {
+        if (p.id === positionId && p.status === 'OPEN') {
+          found = true;
+          return { ...p, status: 'CLOSED', exitPremium: 0, realizedPnl: -(p.premiumPaid || 0), closedAt: new Date().toISOString(), forcedByAdmin: true };
+        }
+        return p;
+      });
+    }
+    if (!found) return res.status(404).json({ error: 'Open position not found' });
+
+    user.derivatives = derivatives;
+    user.options = options;
+    user.markModified('derivatives');
+    user.markModified('options');
+    await user.save();
+    io.emit('force-refresh');
+    res.json({ success: true });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
+// Admin - reset ALL F&O positions (futures + options) for every student.
+// Open futures margins are returned to cash; option premiums are not (already spent).
+app.post('/api/admin/derivatives/reset-all', adminAuth, async (req, res) => {
+  try {
+    const users = await User.find({});
+    for (const user of users) {
+      const openMargin = (user.derivatives || []).filter(p => p.status === 'OPEN').reduce((s, p) => s + (p.margin || 0), 0);
+      user.cash += openMargin;
+      user.derivatives = [];
+      user.options = [];
+      user.markModified('derivatives');
+      user.markModified('options');
+      await user.save();
+    }
+    io.emit('force-refresh');
+    res.json({ success: true });
+  } catch(err) { res.status(500).json({ error: err.message }); }
 });
 
 // Admin - export CSV
