@@ -36,7 +36,7 @@
   .content { padding:24px;max-width:1200px;margin:0 auto; }
 
   /* STATS */
-  .stats-row { display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px; }
+  .stats-row { display:grid;grid-template-columns:repeat(5,1fr);gap:16px;margin-bottom:24px; }
   .stat-card { background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px; }
   .stat-label { font-size:11px;color:var(--text2);font-weight:600;letter-spacing:0.8px;text-transform:uppercase;margin-bottom:8px; }
   .stat-val { font-size:28px;font-weight:800; }
@@ -95,6 +95,21 @@
   .market-bar { display:flex;align-items:center;gap:12px; }
   .mode-chip { padding:5px 12px;border-radius:8px;font-size:12px;font-weight:700; }
 
+  /* F&O CONTROLS */
+  .fo-toggle-row { display:flex;align-items:center;justify-content:space-between;background:var(--bg);border-radius:10px;padding:12px 14px;margin-bottom:12px; }
+  .switch { position:relative;width:44px;height:24px;flex-shrink:0; }
+  .switch input { opacity:0;width:0;height:0; }
+  .switch-slider { position:absolute;cursor:pointer;inset:0;background:var(--border);border-radius:24px;transition:0.2s; }
+  .switch-slider:before { position:absolute;content:"";height:18px;width:18px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:0.2s; }
+  .switch input:checked + .switch-slider { background:var(--green); }
+  .switch input:checked + .switch-slider:before { transform:translateX(20px); }
+  .fo-contract-row { background:var(--bg);border-radius:10px;padding:12px 14px;margin-bottom:10px; }
+  .fo-contract-head { display:flex;align-items:center;justify-content:space-between;margin-bottom:8px; }
+  .fo-mini-inp { background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:7px 10px;color:var(--text);font-size:12px;font-family:'Inter',sans-serif;outline:none;width:100%; }
+  .fo-mini-label { font-size:10px;color:var(--text3);margin-bottom:3px;text-transform:uppercase;letter-spacing:0.5px; }
+  .expire-btn { padding:7px 12px;border-radius:8px;border:1px solid var(--gold);background:rgba(245,158,11,0.12);color:var(--gold);font-size:11px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;white-space:nowrap; }
+  .margin-call-row { display:flex;align-items:center;justify-content:space-between;background:rgba(255,77,109,0.08);border:1px solid rgba(255,77,109,0.3);border-radius:10px;padding:10px 14px;margin-bottom:8px; }
+
   @media(max-width:768px) {
     .stats-row { grid-template-columns:1fr 1fr; }
     .controls-grid { grid-template-columns:1fr; }
@@ -148,6 +163,10 @@
       <div class="stat-card">
         <div class="stat-label">Avg Portfolio</div>
         <div class="stat-val" style="font-size:20px" id="statAvg">₹0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">F&O Margin Blocked</div>
+        <div class="stat-val" style="font-size:20px" id="statFoMargin">₹0</div>
       </div>
     </div>
 
@@ -212,6 +231,75 @@
 
     </div>
 
+    <!-- F&O CONTROLS -->
+    <div class="controls-grid">
+
+      <!-- F&O MASTER CONTROLS -->
+      <div class="card">
+        <div class="card-title">📈 F&O Master Controls</div>
+        <div class="fo-toggle-row">
+          <div>
+            <div style="font-weight:700;font-size:13px">Enable F&O Trading</div>
+            <div style="font-size:11px;color:var(--text3)">Master switch — futures & options on/off for everyone</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="foEnabled" checked>
+            <span class="switch-slider"></span>
+          </label>
+        </div>
+        <div style="margin-bottom:14px">
+          <div class="fo-mini-label">Global Margin Requirement (%)</div>
+          <input type="number" class="fo-mini-inp" id="foMarginPct" value="20" min="5" max="100" step="1">
+        </div>
+        <button class="btn btn-blue" onclick="saveDerivSettings()">💾 Save & Push to Students</button>
+        <div style="font-size:11px;color:var(--text3);margin-top:8px" id="foSettingsStatus">Not yet saved this session</div>
+      </div>
+
+      <!-- F&O CONTRACTS -->
+      <div class="card">
+        <div class="card-title">📊 F&O Contracts</div>
+        <div id="foContractList"></div>
+        <div style="font-size:11px;color:var(--text3);margin-top:6px">Toggle a contract on/off, adjust its premium over spot, or Settle &amp; Expire to close every student's open futures in it right now. Remember to Save &amp; Push after changes.</div>
+      </div>
+
+    </div>
+
+    <!-- MARGIN CALL MONITOR -->
+    <div class="students-card" style="margin-bottom:24px">
+      <div class="table-header">
+        <div style="font-size:15px;font-weight:700">⚠️ Margin Call Monitor</div>
+        <div style="font-size:12px;color:var(--text3)" id="marginCallCount">0 positions flagged</div>
+      </div>
+      <div style="padding:16px 20px" id="marginCallList"></div>
+    </div>
+
+    <!-- F&O POSITIONS OVERSIGHT -->
+    <div class="students-card" style="margin-bottom:24px">
+      <div class="table-header">
+        <div style="font-size:15px;font-weight:700">📈 Open F&O Positions — All Students</div>
+        <div style="display:flex;gap:8px">
+          <button class="btn-sm btn-gold" onclick="exportDerivCSV()">📥 Export F&O CSV</button>
+          <button class="btn-sm" style="background:rgba(255,77,109,0.15);color:var(--red);border:1px solid var(--red)" onclick="resetAllDerivatives()">🗑️ Reset ALL F&O</button>
+        </div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Student</th>
+            <th>Type</th>
+            <th>Contract</th>
+            <th>Direction</th>
+            <th>Lots</th>
+            <th>Entry</th>
+            <th>Blocked/Paid</th>
+            <th>Expiry</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="foPositionsBody"></tbody>
+      </table>
+    </div>
+
     <!-- STUDENTS TABLE -->
     <div class="students-card">
       <div class="table-header">
@@ -270,6 +358,7 @@ async function adminLogin() {
     document.getElementById('loginPage').style.display = 'none';
     document.getElementById('adminApp').style.display = 'block';
     loadStudents();
+    loadDerivSettings();
     try { connectSocket(); } catch(e) { console.log('Socket optional:', e); }
     startTimerTick();
   } catch(e) {
@@ -302,6 +391,8 @@ async function loadStudents() {
     }).sort((a,b) => b.total - a.total);
     updateStats();
     renderStudents(allStudents);
+    renderFoPositions();
+    renderMarginCalls();
   } catch(e) { showToast('Failed to load students','error'); }
 }
 
@@ -312,6 +403,8 @@ function updateStats() {
   const avg = allStudents.length ? allStudents.reduce((s,u)=>s+u.total,0)/allStudents.length : 0;
   document.getElementById('statTop').textContent = `₹${fmt(top)}`;
   document.getElementById('statAvg').textContent = `₹${fmt(avg)}`;
+  const foMargin = allStudents.reduce((s,u) => s + (u.derivatives||[]).filter(p=>p.status==='OPEN').reduce((ss,p)=>ss+(p.margin||0),0), 0);
+  document.getElementById('statFoMargin').textContent = `₹${fmt(foMargin)}`;
 }
 
 function renderStudents(students) {
@@ -467,6 +560,181 @@ async function resetAll() {
 // ─── EXPORT ───────────────────────────────────────────────────────────────────
 function exportCSV() {
   window.open(`${API}/api/admin/export?token=${adminToken}`);
+}
+
+// ─── F&O / DERIVATIVES CONTROLS ────────────────────────────────────────────────
+// Contract list must match FUTURES_CONTRACTS in index.html.
+// Premium here is in % (e.g. 0.22 = 0.22% over spot); students' app converts it.
+const FO_CONTRACTS_DEFAULT = [
+  { id:'RELIANCE-FUT',  underlying:'RELIANCE',  label:'Reliance Futures',  lotSize:10, premium:0.22, active:true },
+  { id:'TCS-FUT',       underlying:'TCS',       label:'TCS Futures',       lotSize:4,  premium:0.18, active:true },
+  { id:'HDFCBANK-FUT',  underlying:'HDFCBANK',  label:'HDFC Bank Futures', lotSize:9,  premium:0.20, active:true },
+  { id:'NIFTYBEES-FUT', underlying:'NIFTYBEES', label:'Nifty 50 Futures',  lotSize:55, premium:0.12, active:true },
+];
+let foContracts = JSON.parse(JSON.stringify(FO_CONTRACTS_DEFAULT));
+
+function renderFoContracts() {
+  document.getElementById('foContractList').innerHTML = foContracts.map(c => `
+    <div class="fo-contract-row">
+      <div class="fo-contract-head">
+        <div>
+          <div style="font-weight:700;font-size:13px">${c.underlying}</div>
+          <div style="font-size:11px;color:var(--text3)">${c.label} · Lot size ${c.lotSize}</div>
+        </div>
+        <label class="switch" style="width:38px;height:20px">
+          <input type="checkbox" ${c.active ? 'checked' : ''} onchange="toggleContractActive('${c.id}', this.checked)">
+          <span class="switch-slider"></span>
+        </label>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end">
+        <div>
+          <div class="fo-mini-label">Premium over spot (%)</div>
+          <input type="number" class="fo-mini-inp" step="0.01" value="${c.premium}" onchange="updateContractPremium('${c.id}', this.value)">
+        </div>
+        <button class="expire-btn" onclick="expireContract('${c.id}','${c.underlying}')">⏳ Settle &amp; Expire</button>
+      </div>
+    </div>`).join('');
+}
+
+function toggleContractActive(id, active) {
+  const c = foContracts.find(x => x.id === id);
+  if (c) c.active = active;
+}
+
+function updateContractPremium(id, value) {
+  const c = foContracts.find(x => x.id === id);
+  if (c) c.premium = parseFloat(value) || 0;
+}
+
+async function loadDerivSettings() {
+  try {
+    const res = await fetch(`${API}/api/admin/derivatives/settings`, { headers:{ Authorization:`Bearer ${adminToken}` } });
+    if (!res.ok) throw new Error('settings endpoint unavailable');
+    const data = await res.json();
+    document.getElementById('foEnabled').checked = data.enabled !== false;
+    document.getElementById('foMarginPct').value = data.marginPct ?? 20;
+    if (Array.isArray(data.contracts) && data.contracts.length) foContracts = data.contracts;
+    renderFoContracts();
+  } catch(e) {
+    renderFoContracts(); // fall back to defaults for this session
+  }
+}
+
+async function saveDerivSettings() {
+  const enabled = document.getElementById('foEnabled').checked;
+  const marginPct = parseFloat(document.getElementById('foMarginPct').value) || 20;
+  try {
+    const res = await fetch(`${API}/api/admin/derivatives/settings`, {
+      method:'POST', headers:{ Authorization:`Bearer ${adminToken}`, 'Content-Type':'application/json' },
+      body: JSON.stringify({ enabled, marginPct, contracts: foContracts })
+    });
+    if (!res.ok) throw new Error('save failed');
+    document.getElementById('foSettingsStatus').textContent = `✅ Saved & pushed at ${new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})}`;
+    showToast('📈 F&O settings pushed to all students!', 'success');
+  } catch(e) {
+    document.getElementById('foSettingsStatus').textContent = '⚠️ Could not reach settings endpoint — is the backend updated?';
+    showToast('Failed to save F&O settings', 'error');
+  }
+}
+
+async function expireContract(contractId, underlying) {
+  if (!confirm(`Settle & expire all open ${underlying} Futures for every student? Their apps will close these positions at the current futures price.`)) return;
+  try {
+    const res = await fetch(`${API}/api/admin/derivatives/expire`, {
+      method:'POST', headers:{ Authorization:`Bearer ${adminToken}`, 'Content-Type':'application/json' },
+      body: JSON.stringify({ contractId })
+    });
+    if (!res.ok) throw new Error('expire failed');
+    showToast(`⏳ ${underlying} Futures expiry sent to all students!`, 'success');
+    setTimeout(loadStudents, 3000); // give clients a moment to settle & save
+  } catch(e) { showToast('Could not reach expire endpoint', 'error'); }
+}
+
+function renderMarginCalls() {
+  const flagged = [];
+  allStudents.forEach(u => {
+    (u.derivatives||[]).filter(p => p.status === 'OPEN' && p.marginCallFor).forEach(p => {
+      flagged.push({ roll:u.roll, name:u.name, underlying:p.underlying, margin:p.margin, id:p.id });
+    });
+  });
+  document.getElementById('marginCallCount').textContent = `${flagged.length} position${flagged.length===1?'':'s'} flagged`;
+  document.getElementById('marginCallList').innerHTML = flagged.length ? flagged.map(f => `
+    <div class="margin-call-row">
+      <div>
+        <span style="font-weight:700">${f.name}</span>
+        <span style="color:var(--text3);font-size:12px"> (${f.roll})</span>
+        <span style="color:var(--text2);font-size:12px"> — ${f.underlying} Futures, ₹${fmt(f.margin)} margin blocked</span>
+      </div>
+      <button class="btn-sm" style="background:var(--red);color:#fff" onclick="forceSquareOff('${f.roll}',${f.id})">⚠️ Force Square-Off</button>
+    </div>`).join('') : `<div style="color:var(--text3);font-size:13px;text-align:center;padding:8px">No margin calls right now 🎉</div>`;
+}
+
+function renderFoPositions() {
+  const rows = [];
+  allStudents.forEach(u => {
+    (u.derivatives||[]).filter(p => p.status === 'OPEN').forEach(p => {
+      rows.push({ kind:'FUT', roll:u.roll, name:u.name, contract:p.underlying, direction:p.direction, lots:`${p.lots} × ${p.lotSize}`, entry:p.entryPrice, blocked:p.margin, expiry:p.expiry, id:p.id });
+    });
+    (u.options||[]).filter(p => p.status === 'OPEN').forEach(p => {
+      rows.push({ kind:'OPT', roll:u.roll, name:u.name, contract:`${p.underlying} ${p.strike} ${p.optionType}`, direction:p.optionType, lots:`${p.lots} × ${p.lotSize}`, entry:p.entryPremium, blocked:p.premiumPaid, expiry:p.expiry, id:p.id });
+    });
+  });
+  document.getElementById('foPositionsBody').innerHTML = rows.length ? rows.map(p => `
+    <tr>
+      <td>${p.name} <span style="color:var(--text3);font-size:11px">(${p.roll})</span></td>
+      <td><span style="background:${p.kind==='FUT'?'rgba(59,130,246,0.15)':'rgba(139,92,246,0.15)'};color:${p.kind==='FUT'?'var(--blue)':'var(--purple)'};padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700">${p.kind}</span></td>
+      <td style="font-weight:600">${p.contract}</td>
+      <td style="color:${(p.direction==='LONG'||p.direction==='CALL')?'var(--green)':'var(--red)'};font-weight:700">${p.direction}</td>
+      <td>${p.lots}</td>
+      <td style="font-family:monospace">₹${fmt(p.entry)}</td>
+      <td style="font-family:monospace">₹${fmt(p.blocked)}</td>
+      <td style="color:var(--text2);font-size:12px">${p.expiry ? new Date(p.expiry).toLocaleDateString('en-IN',{day:'2-digit',month:'short'}) : '—'}</td>
+      <td><button class="btn-sm" style="background:rgba(255,77,109,0.15);color:var(--red);border:1px solid var(--red)" onclick="forceSquareOff('${p.roll}',${p.id})">Square Off</button></td>
+    </tr>`).join('') : `<tr><td colspan="9" style="text-align:center;color:var(--text3);padding:24px">No open F&O positions</td></tr>`;
+}
+
+async function forceSquareOff(roll, positionId) {
+  if (!confirm(`Force square-off this position for ${roll}?\n\nFutures: margin returned, closed flat.\nOptions: closed, premium stays spent.`)) return;
+  try {
+    const res = await fetch(`${API}/api/admin/derivatives/squareoff`, {
+      method:'POST', headers:{ Authorization:`Bearer ${adminToken}`, 'Content-Type':'application/json' },
+      body: JSON.stringify({ roll, positionId })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'squareoff failed');
+    showToast('✅ Position force-closed', 'success');
+    loadStudents();
+  } catch(e) { showToast(`Square-off failed: ${e.message}`, 'error'); }
+}
+
+async function resetAllDerivatives() {
+  if (!confirm('⚠️ Clear ALL F&O positions (futures AND options, open and closed) for every student?\n\nOpen futures margins will be returned to cash. Option premiums are not refunded.')) return;
+  try {
+    const res = await fetch(`${API}/api/admin/derivatives/reset-all`, {
+      method:'POST', headers:{ Authorization:`Bearer ${adminToken}` }
+    });
+    if (!res.ok) throw new Error('reset failed');
+    showToast('✅ All F&O positions reset!', 'success');
+    loadStudents();
+  } catch(e) { showToast('Could not reach reset endpoint', 'error'); }
+}
+
+function exportDerivCSV() {
+  const rows = [['Roll','Name','Type','Contract','Direction','Lots','Lot Size','Entry','Exit','Blocked/Paid','Status','Realized P&L','Expiry','Opened','Closed']];
+  allStudents.forEach(u => {
+    (u.derivatives||[]).forEach(p => {
+      rows.push([u.roll, u.name, 'FUTURES', p.underlying, p.direction, p.lots, p.lotSize, p.entryPrice?.toFixed(2)||'', p.exitPrice?.toFixed(2)||'', p.margin?.toFixed(2)||'', p.status, p.realizedPnl!=null?p.realizedPnl.toFixed(2):'', p.expiry||'', p.openedAt||'', p.closedAt||'']);
+    });
+    (u.options||[]).forEach(p => {
+      rows.push([u.roll, u.name, 'OPTIONS', `${p.underlying} ${p.strike} ${p.optionType}`, p.optionType, p.lots, p.lotSize, p.entryPremium?.toFixed(2)||'', p.exitPremium?.toFixed(2)||'', p.premiumPaid?.toFixed(2)||'', p.status, p.realizedPnl!=null?p.realizedPnl.toFixed(2):'', p.expiry||'', p.openedAt||'', p.closedAt||'']);
+    });
+  });
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type:'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `stockwave-fo-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
 }
 
 // ─── UTILS ────────────────────────────────────────────────────────────────────
