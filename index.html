@@ -516,7 +516,7 @@
       <div class="stat-card">
         <div class="stat-label">Day's P&L</div>
         <div class="stat-val" id="todayPnl">₹0</div>
-        <div class="stat-sub" id="todayPct">vs yesterday's close</div>
+        <div class="stat-sub" id="todayPct">Change today</div>
       </div>
     </div>
     <div class="dash-bottom">
@@ -1496,15 +1496,41 @@ function getDerivativesSnapshot(u) {
   return { value, unrealized };
 }
 
+// Day's P&L for one holding, the way real apps do it:
+//  - shares you already owned before today are measured from yesterday's close
+//  - shares you bought today are measured from the price you paid
+function getDayChange(u, sym, h) {
+  const cur = prices[sym] || 0;
+  const inst = INSTRUMENTS.find(i => i.sym === sym);
+  const prev = (inst && inst.prevClose) || cur;
+  const todayStr = new Date().toLocaleDateString('en-CA');
+  let boughtQty = 0, boughtCost = 0, soldQty = 0;
+  (u.trades || []).forEach(t => {
+    if (t.sym !== sym) return;
+    if (new Date(t.time).toLocaleDateString('en-CA') !== todayStr) return;
+    if (t.type === 'BUY' || t.type === 'SIP') { boughtQty += t.qty; boughtCost += t.total; }
+    else if (t.type === 'SELL') { soldQty += t.qty; }
+  });
+  const netToday = Math.max(0, boughtQty - soldQty);
+  const qtyToday = Math.min(h.qty, netToday);
+  const qtyOld = Math.max(0, h.qty - qtyToday);
+  const buyPriceToday = boughtQty > 0 ? boughtCost / boughtQty : cur;
+  const chg = (cur - prev) * qtyOld + (cur - buyPriceToday) * qtyToday;
+  const base = prev * qtyOld + buyPriceToday * qtyToday;
+  return { chg, base };
+}
+
 // One place that works out every portfolio number, so all screens agree
 function getPortfolioSnapshot(u) {
   const holdings = Object.entries(u.holdings || {});
   const invested = holdings.reduce((s, [sym, h]) => s + h.avgPrice * h.qty, 0);
   const currentVal = holdings.reduce((s, [sym, h]) => s + (prices[sym] || 0) * h.qty, 0);
-  const prevVal = holdings.reduce((s, [sym, h]) => {
-    const inst = INSTRUMENTS.find(i => i.sym === sym);
-    return s + ((inst && inst.prevClose) || prices[sym] || 0) * h.qty;
-  }, 0);
+  let dayChgTotal = 0, dayBaseTotal = 0;
+  holdings.forEach(([sym, h]) => {
+    const dc = getDayChange(u, sym, h);
+    dayChgTotal += dc.chg;
+    dayBaseTotal += dc.base;
+  });
   const d = getDerivativesSnapshot(u);
   const total = u.cash + currentVal + d.value;
   const ret = total - STARTING_CAPITAL;
@@ -1513,8 +1539,8 @@ function getPortfolioSnapshot(u) {
     invested, currentVal, total, ret,
     unrealized,
     realized: ret - unrealized,            // profit/loss already booked from closed trades
-    dayPnl: currentVal - prevVal,          // change since yesterday's close
-    dayBase: prevVal,
+    dayPnl: dayChgTotal,                   // change today (new shares measured from your buy price)
+    dayBase: dayBaseTotal,
     count: holdings.length
   };
 }
@@ -1548,8 +1574,8 @@ function updateDashboard() {
   setSignedEl(document.getElementById('realPnl'), s.realized);
   setSignedEl(document.getElementById('todayPnl'), s.dayPnl);
   document.getElementById('todayPct').textContent = s.dayBase > 0
-    ? `${(s.dayPnl / s.dayBase * 100).toFixed(2)}% vs yesterday's close`
-    : "vs yesterday's close";
+    ? `${(s.dayPnl / s.dayBase * 100).toFixed(2)}% today`
+    : 'Change today';
 
   updateNavBalance();
   renderPortfolioChart(u);
@@ -1952,9 +1978,9 @@ function renderPortfolio() {
       const dir = pnl >= 0;
       const inst = INSTRUMENTS.find(i => i.sym === sym);
       const inv = h.avgPrice * h.qty;
-      const prev = (inst && inst.prevClose) || cur;
-      const dayChg = (cur - prev) * h.qty;
-      const dayPct = prev > 0 ? ((cur - prev) / prev * 100).toFixed(2) : '0.00';
+      const dc = getDayChange(u, sym, h);
+      const dayChg = dc.chg;
+      const dayPct = dc.base > 0 ? (dc.chg / dc.base * 100).toFixed(2) : '0.00';
       const dayDir = dayChg >= 0;
       return `<tr>
         <td>
@@ -1979,7 +2005,7 @@ function renderPortfolio() {
     }).join('')}
     </tbody>
   </table></div>
-  <div style="font-size:12px;color:var(--text3);margin-top:10px;line-height:1.6">Invested = what you paid. Unrealized P&amp;L = current value minus invested, and only becomes real when you sell. Day's P&amp;L = change since yesterday's close.</div>`;
+  <div style="font-size:12px;color:var(--text3);margin-top:10px;line-height:1.6">Invested = what you paid. Unrealized P&amp;L = current value minus invested, and only becomes real when you sell. Day's P&amp;L = today's change (shares bought today are measured from the price you paid).</div>`;
 }
 
 function renderPortfolioGrowthChart() {
@@ -3017,11 +3043,22 @@ function renderSipPage() {
     return;
   }
 
+  // A SIP only keeps a record of what it bought. What you still own lives in Holdings,
+  // so the card below shows the units you still hold (after any sells), not the units ever bought.
+  const sipUnitsBySym = {};
+  sips.forEach(s => { sipUnitsBySym[s.sym] = (sipUnitsBySym[s.sym] || 0) + s.totalUnits; });
+
   document.getElementById('sipList').innerHTML = sips.map(sip => {
-    const curVal = prices[sip.sym] * sip.totalUnits;
-    const pnl = curVal - sip.totalInvested;
-    const pnlPct = sip.totalInvested > 0 ? (pnl / sip.totalInvested * 100).toFixed(2) : '0.00';
+    const ownedQty = (u.holdings[sip.sym] && u.holdings[sip.sym].qty) || 0;
+    const shareOfHolding = sipUnitsBySym[sip.sym] > 0 ? Math.min(1, ownedQty / sipUnitsBySym[sip.sym]) : 0;
+    const unitsHeld = round4(sip.totalUnits * shareOfHolding);
+    const soldUnits = round4(sip.totalUnits - unitsHeld);
+    const curVal = prices[sip.sym] * unitsHeld;
+    const costOfHeld = sip.avgBuyPrice * unitsHeld;
+    const pnl = curVal - costOfHeld;
+    const pnlPct = costOfHeld > 0 ? (pnl / costOfHeld * 100).toFixed(2) : '0.00';
     const dir = pnl >= 0;
+    const allSold = unitsHeld <= 0.00005;
     const inst = INSTRUMENTS.find(i => i.sym === sip.sym);
     const typeTag = inst?.type === 'ETF' ? 'tag-etf' : '';
     return `<div class="sip-card">
@@ -3038,13 +3075,14 @@ function renderSipPage() {
       <div class="sip-grid">
         <div class="sip-stat"><div class="sip-stat-label">SIP Amount</div><div class="sip-stat-val">₹${fmt(sip.amount)}</div></div>
         <div class="sip-stat"><div class="sip-stat-label">Invested</div><div class="sip-stat-val">₹${fmt(sip.totalInvested)}</div></div>
-        <div class="sip-stat"><div class="sip-stat-label">Current Value</div><div class="sip-stat-val" style="color:${dir?'var(--green)':'var(--red)'}">₹${fmt(curVal)}</div></div>
-        <div class="sip-stat"><div class="sip-stat-label">Returns</div><div class="sip-stat-val" style="color:${dir?'var(--green)':'var(--red)'}">${dir?'+':''}${pnlPct}%</div></div>
-        <div class="sip-stat"><div class="sip-stat-label">Units Held</div><div class="sip-stat-val">${sip.totalUnits.toFixed(4)}</div></div>
+        <div class="sip-stat"><div class="sip-stat-label">Current Value</div><div class="sip-stat-val">₹${fmt(curVal)}</div></div>
+        <div class="sip-stat"><div class="sip-stat-label">Returns (on units held)</div><div class="sip-stat-val" style="color:${allSold?'var(--text2)':(dir?'var(--green)':'var(--red)')}">${allSold ? '—' : (dir?'+':'') + pnlPct + '%'}</div></div>
+        <div class="sip-stat"><div class="sip-stat-label">Units Held</div><div class="sip-stat-val">${unitsHeld.toFixed(4)}</div></div>
         <div class="sip-stat"><div class="sip-stat-label">Avg Buy Price</div><div class="sip-stat-val">₹${fmt(sip.avgBuyPrice)}</div></div>
         <div class="sip-stat"><div class="sip-stat-label">Current Price</div><div class="sip-stat-val">₹${fmt(prices[sip.sym])}</div></div>
         <div class="sip-stat"><div class="sip-stat-label">Installments</div><div class="sip-stat-val">${sip.installments}</div></div>
       </div>
+      ${soldUnits > 0.00005 ? `<div style="font-size:12px;color:var(--gold);margin:10px 0 2px;line-height:1.5">${allSold ? 'You have sold all the units bought by this SIP.' : 'You have sold ' + soldUnits.toFixed(4) + ' of the ' + sip.totalUnits.toFixed(4) + ' units this SIP bought.'} ${sip.status === 'active' ? 'The plan is still active and will buy again on its next date. Pause or cancel it to stop.' : ''}</div>` : ''}
       <div class="sip-progress"><div class="sip-progress-fill" style="width:${Math.min(100,(sip.installments/10)*100)}%"></div></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button onclick="triggerSipNow(${sip.id})" style="padding:8px 14px;border-radius:8px;border:1px solid var(--blue);background:rgba(59,130,246,0.12);color:var(--blue);font-weight:700;font-size:12px;cursor:pointer;font-family:'Inter',sans-serif">▶ Invest Now</button>
